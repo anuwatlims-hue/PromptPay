@@ -1,0 +1,2605 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ระบบกรอกแบบยืนยันการลงทะเบียน PromptPay ด้วยเลขประจำตัวประชาชน (TH Sarabun PSK)</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sarabun:ital,wght@0,400;0,500;0,600;0,700;1,400;1,700&display=swap" rel="stylesheet" />
+  <style>
+    /* Map TH Sarabun PSK to local font or CDN TH Sarabun New, falling back to Google Fonts Sarabun */
+    @font-face {
+      font-family: 'TH Sarabun PSK';
+      src: local('TH Sarabun PSK'), local('THSarabunPSK'), local('TH Sarabun New'), local('THSarabunNew'),
+           url('https://cdn.jsdelivr.net/gh/lazywasabi/thai-web-fonts@7/fonts/THSarabunNew/THSarabunNew.woff2') format('woff2'),
+           local('Sarabun Regular'), local('Sarabun');
+      font-weight: 400;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: 'TH Sarabun PSK';
+      src: local('TH Sarabun PSK Bold'), local('THSarabunPSK-Bold'), local('TH Sarabun New Bold'), local('THSarabunNew-Bold'),
+           url('https://cdn.jsdelivr.net/gh/lazywasabi/thai-web-fonts@7/fonts/THSarabunNew/THSarabunNew-Bold.woff2') format('woff2'),
+           local('Sarabun Bold'), local('Sarabun');
+      font-weight: 700;
+      font-style: normal;
+      font-display: swap;
+    }
+
+    body {
+      font-family: 'Inter', 'Sarabun', sans-serif;
+      background-color: #f1f5f9;
+      color: #0f172a;
+    }
+
+    .font-sarabun-psk {
+      font-family: 'TH Sarabun PSK', 'TH Sarabun New', 'Sarabun', sans-serif;
+      font-feature-settings: "kern" 1;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* A4 Document Exact Dimensions (210mm x 297mm at 96 DPI = 794px x 1123px)
+       Calibrated to match the exact margins and proportions of the official PromptPay form scan */
+    .a4-page {
+      width: 794px;
+      height: 1123px;
+      background-color: #ffffff;
+      position: relative;
+      box-sizing: border-box;
+      padding: 48px 66px 64px 82px;
+      font-family: 'Sarabun', 'TH Sarabun PSK', 'TH Sarabun New', sans-serif;
+      color: #000000;
+      line-height: 1.45;
+      user-select: none;
+      overflow: hidden;
+      box-shadow: 0 20px 25px -5px rgba(15, 23, 42, 0.14), 0 8px 10px -6px rgba(15, 23, 42, 0.08);
+      border: 1px solid #cbd5e1;
+    }
+
+    /* Dotted line field container */
+    .form-line-row {
+      display: flex;
+      align-items: baseline;
+      width: 100%;
+      position: relative;
+      min-height: 30px;
+    }
+
+    .form-label {
+      white-space: nowrap;
+      font-size: 15.5px; /* Calibrated to match 16pt TH Sarabun PSK physical width on A4 */
+      color: #000000;
+      flex-shrink: 0;
+    }
+
+    .dotted-field-wrapper {
+      position: relative;
+      flex: 1 1 0%;
+      display: flex;
+      align-items: baseline;
+      min-width: 0;
+      cursor: pointer;
+      border-radius: 4px;
+      transition: background-color 0.15s ease;
+    }
+
+    .dotted-field-wrapper:hover {
+      background-color: rgba(59, 130, 246, 0.06);
+    }
+
+    .dotted-leader {
+      width: 100%;
+      overflow: hidden;
+      white-space: nowrap;
+      font-size: 14.5px;
+      color: #222222;
+      letter-spacing: 0.4px;
+      line-height: 1;
+      user-select: none;
+      pointer-events: none;
+    }
+
+    .filled-value {
+      position: absolute;
+      left: 6px;
+      right: 2px;
+      bottom: 2px;
+      font-family: 'Sarabun', 'TH Sarabun PSK', 'TH Sarabun New', sans-serif;
+      white-space: nowrap;
+      overflow: visible;
+      line-height: 1.25;
+      pointer-events: none;
+    }
+
+    .filled-value-center {
+      text-align: center;
+      left: 2px;
+      right: 2px;
+    }
+
+    /* 13-digit National ID Boxes matching official form (1 - 4 - 5 - 2 - 1) */
+    .cid-boxes-container {
+      display: inline-flex;
+      align-items: center;
+      vertical-align: middle;
+      margin-left: 5px;
+      cursor: pointer;
+      padding: 1px;
+      border-radius: 4px;
+      flex-shrink: 0;
+      transition: background-color 0.15s ease;
+    }
+
+    .cid-boxes-container:hover {
+      background-color: rgba(59, 130, 246, 0.08);
+    }
+
+    .cid-group {
+      display: inline-flex;
+      border: 1.15px solid #111111;
+      background-color: rgba(255, 255, 255, 0.9);
+    }
+
+    .cid-box {
+      width: 16.5px;
+      height: 21px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Sarabun', 'TH Sarabun PSK', 'TH Sarabun New', sans-serif;
+      font-size: 15.5px;
+      font-weight: 600;
+      line-height: 1;
+      color: #000000;
+      box-sizing: border-box;
+    }
+
+    .cid-box + .cid-box {
+      border-left: 1px solid #111111;
+    }
+
+    .cid-hyphen {
+      margin: 0 3px;
+      font-size: 15px;
+      font-weight: 400;
+      line-height: 1;
+      color: #000000;
+    }
+
+    /* Active field highlight ring on paper preview */
+    .field-active-highlight {
+      background-color: rgba(37, 99, 235, 0.09) !important;
+      outline: 1.5px dashed rgba(37, 99, 235, 0.55);
+      outline-offset: 2px;
+    }
+
+    /* When exporting or printing, remove all hover/active outlines and borders */
+    .exporting-pdf {
+      border: none !important;
+      box-shadow: none !important;
+    }
+
+    .exporting-pdf .dotted-field-wrapper,
+    .exporting-pdf .cid-boxes-container,
+    .exporting-pdf .field-active-highlight {
+      background-color: transparent !important;
+      outline: none !important;
+    }
+
+    /* Background scan overlay mode */
+    .scan-bg-mode {
+      background-size: 100% 100%;
+      background-repeat: no-repeat;
+      background-position: center;
+    }
+
+    .scan-bg-mode .static-form-element {
+      opacity: 0;
+    }
+
+    .scan-bg-mode .cid-group {
+      border-color: transparent;
+      background-color: transparent;
+    }
+
+    .scan-bg-mode .cid-box + .cid-box {
+      border-left-color: transparent;
+    }
+
+    /* Print Media Query for Direct Browser Printing / Save as PDF */
+    @page {
+      size: A4 portrait;
+      margin: 0;
+    }
+
+    @media print {
+      html, body {
+        width: 210mm;
+        height: 297mm;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #ffffff !important;
+        overflow: hidden !important;
+      }
+
+      .no-print {
+        display: none !important;
+      }
+
+      #preview-scroll-area {
+        padding: 0 !important;
+        margin: 0 !important;
+        overflow: visible !important;
+        display: block !important;
+        background: #ffffff !important;
+        border: none !important;
+      }
+
+      #a4-size-box,
+      #a4-scale-wrapper {
+        transform: none !important;
+        width: 210mm !important;
+        height: 297mm !important;
+        margin: 0 !important;
+      }
+
+      #a4-paper {
+        width: 210mm !important;
+        height: 297mm !important;
+        box-shadow: none !important;
+        margin: 0 !important;
+        border: none !important;
+      }
+
+      .dotted-field-wrapper,
+      .cid-boxes-container,
+      .field-active-highlight {
+        background-color: transparent !important;
+        outline: none !important;
+      }
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+  <!-- Top Navigation & Action Header -->
+  <header class="no-print bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+    <div class="max-w-[1440px] mx-auto px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-sm font-bold text-lg">
+          กพ
+        </div>
+        <div>
+          <div class="flex items-center gap-2 flex-wrap">
+            <h1 class="text-base sm:text-lg font-bold text-slate-900">
+              ระบบกรอกแบบยืนยันการลงทะเบียน PromptPay
+            </h1>
+            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
+              ฟอนต์ TH Sarabun PSK
+            </span>
+          </div>
+          <p class="text-xs text-slate-500">
+            กรอกข้อมูลในช่องด้านซ้าย ตรวจสอบตัวอย่างกระดาษ A4 เต็มแผ่นด้านขวา แล้วกดบันทึกเป็นไฟล์ PDF หรือสั่งพิมพ์ได้ทันที
+          </p>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="flex items-center gap-2 flex-wrap">
+        <button
+          id="btn-fill-sample"
+          type="button"
+          class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs sm:text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors"
+          title="กรอกข้อมูลตัวอย่างตามโจทย์"
+        >
+          <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          <span>ข้อมูลตัวอย่าง</span>
+        </button>
+
+        <button
+          id="btn-clear-all"
+          type="button"
+          class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs sm:text-sm font-medium text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition-colors"
+          title="ล้างข้อมูลทั้งหมดเพื่อกรอกใหม่"
+        >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+          </svg>
+          <span>ล้างข้อมูล</span>
+        </button>
+
+        <button
+          id="btn-print-doc"
+          type="button"
+          class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 transition-colors"
+        >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+          </svg>
+          <span>พิมพ์เอกสาร (Print)</span>
+        </button>
+
+        <button
+          id="btn-download-pdf"
+          type="button"
+          class="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 shadow-sm transition-all"
+        >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+          </svg>
+          <span>บันทึกเป็นไฟล์ PDF</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Workspace Container -->
+  <main class="flex-1 max-w-[1440px] w-full mx-auto grid grid-cols-1 lg:grid-cols-12 gap-5 p-4 sm:p-6">
+
+    <!-- Left Column: Form Inputs (5 cols on desktop) -->
+    <section class="no-print lg:col-span-5 flex flex-col gap-4 min-w-0">
+
+      <!-- Card 1: Main Information Fields -->
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-4">
+        <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+          <div>
+            <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
+              <span class="w-6 h-6 rounded-full bg-blue-600 text-white text-xs flex items-center justify-center font-bold">1</span>
+              ข้อมูลผู้ยืนยันการลงทะเบียน
+            </h2>
+            <p class="text-xs text-slate-500 mt-0.5">
+              กรอกข้อมูลเพื่อแสดงผลด้วยฟอนต์ TH Sarabun PSK บนแบบฟอร์ม
+            </p>
+          </div>
+          <!-- Quick Thai/Arabic Numeral Mode Toggle & Converter -->
+          <div class="flex flex-col items-end gap-1">
+            <div class="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200/80 shadow-xs">
+              <button
+                id="btn-to-thai-num"
+                type="button"
+                class="px-2.5 py-1 text-xs font-semibold rounded-lg bg-blue-600 text-white shadow-xs hover:bg-blue-700 transition-all flex items-center gap-1"
+                title="ตั้งค่าเริ่มต้นและแปลงตัวเลขทั้งหน้าเป็นเลขไทย (๐-๙)"
+              >
+                <span class="w-1.5 h-1.5 rounded-full bg-white"></span>
+                <span>เลขไทย (๐-๙)</span>
+              </button>
+              <button
+                id="btn-to-arabic-num"
+                type="button"
+                class="px-2.5 py-1 text-xs font-medium rounded-lg text-slate-600 hover:text-slate-900 hover:bg-white transition-all flex items-center gap-1"
+                title="แปลงตัวเลขทั้งหน้าเป็นเลขอารบิก (0-9) และกรอกเป็นเลขอารบิก"
+              >
+                <span>อารบิก (0-9)</span>
+              </button>
+            </div>
+            <span class="text-[10px] text-slate-500" id="num-mode-indicator">โหมดปัจจุบัน: พิมพ์ตัวเลขเป็นเลขไทยอัตโนมัติ</span>
+          </div>
+        </div>
+
+        <!-- Field: วันที่ -->
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <label for="input-date" class="block text-sm font-semibold text-slate-800">
+              วันที่ <span class="text-xs font-normal text-slate-500">(วันปัจจุบัน หรือพิมพ์แก้ไขเองได้)</span>
+            </label>
+            <div class="flex items-center gap-1.5">
+              <button
+                id="btn-date-today"
+                type="button"
+                class="text-xs text-blue-600 hover:text-blue-800 font-medium underline"
+                title="ตั้งเป็นวันที่ปัจจุบันอัตโนมัติ"
+              >
+                ใส่วันที่ปัจจุบัน
+              </button>
+              <button id="btn-date-sample" type="button" class="hidden"></button>
+            </div>
+          </div>
+          <input
+            id="input-date"
+            type="text"
+            value="๒๑ ต.ค. ๖๙"
+            placeholder="เช่น ๒๑ ต.ค. ๖๙ (พิมพ์แก้ไขเองได้ตามสะดวก)"
+            data-target-preview="preview-date-wrapper"
+            class="w-full px-3.5 py-2 rounded-xl border border-slate-300 focus:border-blue-600 focus:ring-2 focus:ring-blue-100 outline-none text-base transition-all"
+          />
+        </div>
+
+        <!-- Field: ข้าพเจ้า -->
+        <div>
+          <div class="flex items-center justify-between mb-1.5 flex-wrap gap-1">
+            <label for="input-fullname" class="block text-sm font-semibold text-slate-800">
+              ข้าพเจ้า <span class="text-xs font-normal text-slate-500">(ยศ/คำนำหน้า ชื่อ-นามสกุล)</span>
+            </label>
+            <div class="flex items-center gap-1.5">
+              <button
+                id="btn-clear-rank"
+                type="button"
+                class="text-xs text-slate-400 hover:text-rose-600 font-medium underline transition-colors"
+                title="ล้างเฉพาะยศที่เลือก"
+              >
+                ล้างยศ
+              </button>
+              <button id="btn-name-sample" type="button" class="hidden"></button>
+            </div>
+          </div>
+
+          <!-- Police Rank Quick-Selection Card -->
+          <div class="mb-2 p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 space-y-2">
+            <div class="flex items-center justify-between flex-wrap gap-2">
+              <span class="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+                <span>เลือกยศตำรวจ:</span>
+                <span class="text-[11px] font-normal text-slate-400">(คลิกเพื่อใส่หน้าชื่อ)</span>
+              </span>
+
+              <!-- Female Toggle Button -->
+              <button
+                id="btn-toggle-female"
+                type="button"
+                class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border transition-all cursor-pointer select-none bg-white text-slate-700 border-slate-300 hover:bg-slate-100 shadow-2xs"
+                title="คลิกเพื่อเปิด/ปิด เติม 'หญิง' ท้ายยศ เช่น ร.ต.อ.หญิง หรือ ว่าที่ พ.ต.ท.หญิง"
+              >
+                <span id="female-indicator" class="w-2 h-2 rounded-full bg-slate-300"></span>
+                <span id="female-label">+ หญิง (เช่น ร.ต.อ.หญิง)</span>
+              </button>
+            </div>
+
+            <!-- Tier 1: ประทวน -->
+            <div class="flex items-center flex-wrap gap-1">
+              <span class="text-[11px] font-medium text-slate-500 w-12 flex-shrink-0">ประทวน:</span>
+              <button type="button" class="btn-rank-chip px-2 py-0.5 rounded-lg text-xs font-medium bg-white hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300 border border-slate-200 text-slate-700 transition-all cursor-pointer select-none shadow-2xs" data-rank="ส.ต.ต.">ส.ต.ต.</button>
+              <button type="button" class="btn-rank-chip px-2 py-0.5 rounded-lg text-xs font-medium bg-white hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300 border border-slate-200 text-slate-700 transition-all cursor-pointer select-none shadow-2xs" data-rank="ส.ต.ท.">ส.ต.ท.</button>
+              <button type="button" class="btn-rank-chip px-2 py-0.5 rounded-lg text-xs font-medium bg-white hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300 border border-slate-200 text-slate-700 transition-all cursor-pointer select-none shadow-2xs" data-rank="ส.ต.อ.">ส.ต.อ.</button>
+              <button type="button" class="btn-rank-chip px-2 py-0.5 rounded-lg text-xs font-medium bg-white hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300 border border-slate-200 text-slate-700 transition-all cursor-pointer select-none shadow-2xs" data-rank="จ.ส.ต.">จ.ส.ต.</button>
+              <button type="button" class="btn-rank-chip px-2 py-0.5 rounded-lg text-xs font-medium bg-white hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300 border border-slate-200 text-slate-700 transition-all cursor-pointer select-none shadow-2xs" data-rank="ด.ต.">ด.ต.</button>
+            </div>
+
+            <!-- Tier 2: ร้อยตำรวจ -->
+            <div class="flex items-center flex-wrap gap-1">
+              <span class="text-[11px] font-medium text-slate-500 w-12 flex-shrink-0">ร.ต.:</span>
+              <button type="button" class="btn-rank-chip px-2 py-0.5 rounded-lg text-xs font-medium bg-white hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300 border border-slate-200 text-slate-700 transition-all cursor-pointer select-none shadow-2xs" data-rank="ว่าที่ ร.ต.ต.">ว่าที่ ร.ต.ต.</button>
+              <button type="button" class="btn-rank-chip px-2 py-0.5 rounded-lg text-xs font-medium bg-white hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300 border border-slate-200 text-slate-700 transition-all cursor-pointer select-none shadow-2xs" data-rank="ร.ต.ต.">ร.ต.ต.</button>
+              <button type="button" class="btn-rank-chip px-2 py-0.5 rounded-lg text-xs font-medium bg-white hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300 border border-slate-200 text-slate-700 transition-all cursor-pointer select-none shadow-2xs" data-rank="ว่าที่ ร.ต.ท.">ว่าที่ ร.ต.ท.</button>
+              <button type="button" class="btn-rank-chip px-2 py-0.5 rounded-lg text-xs font-medium bg-white hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300 border border-slate-200 text-slate-700 transition-all cursor-pointer select-none shadow-2xs" data-rank="ร.ต.ท.">ร.ต.ท.</button>
+              <button type="button" class="btn-rank-chip px-2 py-0.5 rounded-lg text-xs font-medium bg-white hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300 border border-slate-200 text-slate-700 transition-all cursor-pointer select-none shadow-2xs" data-rank="ว่าที่ ร.ต.อ.">ว่าที่ ร.ต.อ.</button>
+              <button type="button" class="btn-rank-chip px-2 py-0.5 rounded-lg text-xs font-medium bg-white hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300 border border-slate-200 text-slate-700 transition-all cursor-pointer select-none shadow-2xs" data-rank="ร.ต.อ.">ร.ต.อ.</button>
+            </div>
+
+            <!-- Tier 3: พันตำรวจ -->
+            <div class="flex items-center flex-wrap gap-1">
+              <span class="text-[11px] font-medium text-slate-500 w-12 flex-shrink-0">พ.ต.:</span>
+              <button type="button" class="btn-rank-chip px-2 py-0.5 rounded-lg text-xs font-medium bg-white hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300 border border-slate-200 text-slate-700 transition-all cursor-pointer select-none shadow-2xs" data-rank="ว่าที่ พ.ต.ต.">ว่าที่ พ.ต.ต.</button>
+              <button type="button" class="btn-rank-chip px-2 py-0.5 rounded-lg text-xs font-medium bg-white hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300 border border-slate-200 text-slate-700 transition-all cursor-pointer select-none shadow-2xs" data-rank="พ.ต.ต.">พ.ต.ต.</button>
+              <button type="button" class="btn-rank-chip px-2 py-0.5 rounded-lg text-xs font-medium bg-white hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300 border border-slate-200 text-slate-700 transition-all cursor-pointer select-none shadow-2xs" data-rank="ว่าที่ พ.ต.ท.">ว่าที่ พ.ต.ท.</button>
+              <button type="button" class="btn-rank-chip px-2 py-0.5 rounded-lg text-xs font-medium bg-white hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300 border border-slate-200 text-slate-700 transition-all cursor-pointer select-none shadow-2xs" data-rank="พ.ต.ท.">พ.ต.ท.</button>
+              <button type="button" class="btn-rank-chip px-2 py-0.5 rounded-lg text-xs font-medium bg-white hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300 border border-slate-200 text-slate-700 transition-all cursor-pointer select-none shadow-2xs" data-rank="ว่าที่ พ.ต.อ.">ว่าที่ พ.ต.อ.</button>
+              <button type="button" class="btn-rank-chip px-2 py-0.5 rounded-lg text-xs font-medium bg-white hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300 border border-slate-200 text-slate-700 transition-all cursor-pointer select-none shadow-2xs" data-rank="พ.ต.อ.">พ.ต.อ.</button>
+            </div>
+          </div>
+
+          <div class="relative">
+            <input
+              id="input-fullname"
+              type="text"
+              list="list-ranks"
+              value=""
+              placeholder="เลือกยศด้านบน หรือพิมพ์ยศและชื่อ-นามสกุลเองได้อิสระ"
+              data-target-preview="preview-fullname-wrapper"
+              class="w-full px-3.5 py-2 rounded-xl border border-slate-300 focus:border-blue-600 focus:ring-2 focus:ring-blue-100 outline-none text-base transition-all"
+            />
+            <datalist id="list-ranks">
+              <option value="ส.ต.ต."></option>
+              <option value="ส.ต.ต.หญิง"></option>
+              <option value="ส.ต.ท."></option>
+              <option value="ส.ต.ท.หญิง"></option>
+              <option value="ส.ต.อ."></option>
+              <option value="ส.ต.อ.หญิง"></option>
+              <option value="จ.ส.ต."></option>
+              <option value="จ.ส.ต.หญิง"></option>
+              <option value="ด.ต."></option>
+              <option value="ด.ต.หญิง"></option>
+              <option value="ว่าที่ ร.ต.ต."></option>
+              <option value="ว่าที่ ร.ต.ต.หญิง"></option>
+              <option value="ร.ต.ต."></option>
+              <option value="ร.ต.ต.หญิง"></option>
+              <option value="ว่าที่ ร.ต.ท."></option>
+              <option value="ว่าที่ ร.ต.ท.หญิง"></option>
+              <option value="ร.ต.ท."></option>
+              <option value="ร.ต.ท.หญิง"></option>
+              <option value="ว่าที่ ร.ต.อ."></option>
+              <option value="ว่าที่ ร.ต.อ.หญิง"></option>
+              <option value="ร.ต.อ."></option>
+              <option value="ร.ต.อ.หญิง"></option>
+              <option value="ว่าที่ พ.ต.ต."></option>
+              <option value="ว่าที่ พ.ต.ต.หญิง"></option>
+              <option value="พ.ต.ต."></option>
+              <option value="พ.ต.ต.หญิง"></option>
+              <option value="ว่าที่ พ.ต.ท."></option>
+              <option value="ว่าที่ พ.ต.ท.หญิง"></option>
+              <option value="พ.ต.ท."></option>
+              <option value="พ.ต.ท.หญิง"></option>
+              <option value="ว่าที่ พ.ต.อ."></option>
+              <option value="ว่าที่ พ.ต.อ.หญิง"></option>
+              <option value="พ.ต.อ."></option>
+              <option value="พ.ต.อ.หญิง"></option>
+            </datalist>
+          </div>
+          <p class="text-[11px] text-blue-600 mt-1 flex items-center gap-1">
+            <svg class="w-3.5 h-3.5 inline-block text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span>ชื่อที่กรอกในช่องนี้จะถูกส่งไปแสดงในช่อง (..............) ในส่วนลงชื่อให้อัตโนมัติทันที</span>
+          </p>
+        </div>
+
+        <!-- Field: เลขประจำตัวประชาชน 13 หลัก -->
+        <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200/80 space-y-2.5">
+          <div class="flex items-center justify-between">
+            <label for="input-cid-raw" class="block text-sm font-semibold text-slate-800">
+              เลขประจำตัวประชาชน 13 หลัก
+            </label>
+            <div class="flex items-center gap-2">
+              <button
+                id="btn-cid-clear"
+                type="button"
+                class="text-xs text-rose-600 hover:text-rose-800 font-medium underline"
+              >
+                ล้างเลขบัตร
+              </button>
+            </div>
+          </div>
+
+          <div class="relative">
+            <input
+              id="input-cid-raw"
+              type="text"
+              maxlength="25"
+              value=""
+              placeholder="กรอกเลขบัตรประชาชน 13 หลัก (ไทย หรือ อารบิก)"
+              data-target-preview="preview-cid-wrapper"
+              class="w-full px-3.5 py-2 rounded-xl border border-slate-300 bg-white focus:border-blue-600 focus:ring-2 focus:ring-blue-100 outline-none text-base tracking-wider transition-all"
+            />
+            <span id="cid-count-badge" class="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
+              เว้นว่าง
+            </span>
+          </div>
+
+          <!-- 13 Mini Boxes for individual digit verification/editing -->
+          <div>
+            <p class="text-[11px] text-slate-500 mb-1.5">
+              สามารถพิมพ์รวดเดียวด้านบน หรือคลิกแก้ไขทีละหลักในช่องด้านล่าง (ครบทั้ง 13 ช่อง รูปแบบ 1-4-5-2-1):
+            </p>
+            <div id="mini-cid-grid" class="flex items-center flex-wrap gap-1 select-none">
+              <!-- Populated and bound by JS -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Additional Official Fields: ตำแหน่ง, สังกัด/กอง/สำนักงาน, กรม -->
+        <div class="pt-1 space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">
+              ข้อมูลส่วนราชการ (กรอกหรือไม่กรอกก็ได้)
+            </span>
+          </div>
+
+          <div>
+            <div class="flex items-center justify-between mb-1.5 flex-wrap gap-1">
+              <label for="input-position" class="block text-sm font-semibold text-slate-800">
+                ตำแหน่ง <span class="text-xs font-normal text-slate-400">(เลือกตัวเลือกด่วน หรือพิมพ์เองได้)</span>
+              </label>
+              <button
+                id="btn-clear-position"
+                type="button"
+                class="text-xs text-slate-400 hover:text-rose-600 font-medium underline transition-colors"
+                title="ล้างช่องตำแหน่ง"
+              >
+                เว้นว่าง
+              </button>
+            </div>
+
+            <!-- Quick Selection Chips: ผบ.หมู่, รอง สว., สว., รอง ผกก., ผกก. -->
+            <div class="flex items-center flex-wrap gap-1.5 mb-2">
+              <span class="text-[11px] font-medium text-slate-500 mr-0.5">เลือกด่วน:</span>
+              <button
+                type="button"
+                class="btn-pos-chip px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-100 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300 border border-slate-200 text-slate-700 transition-all cursor-pointer select-none"
+                data-pos="ผบ.หมู่"
+              >
+                ผบ.หมู่
+              </button>
+              <button
+                type="button"
+                class="btn-pos-chip px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-100 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300 border border-slate-200 text-slate-700 transition-all cursor-pointer select-none"
+                data-pos="รอง สว."
+              >
+                รอง สว.
+              </button>
+              <button
+                type="button"
+                class="btn-pos-chip px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-100 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300 border border-slate-200 text-slate-700 transition-all cursor-pointer select-none"
+                data-pos="สว."
+              >
+                สว.
+              </button>
+              <button
+                type="button"
+                class="btn-pos-chip px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-100 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300 border border-slate-200 text-slate-700 transition-all cursor-pointer select-none"
+                data-pos="รอง ผกก."
+              >
+                รอง ผกก.
+              </button>
+              <button
+                type="button"
+                class="btn-pos-chip px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-100 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300 border border-slate-200 text-slate-700 transition-all cursor-pointer select-none"
+                data-pos="ผกก."
+              >
+                ผกก.
+              </button>
+            </div>
+
+            <div class="relative">
+              <input
+                id="input-position"
+                type="text"
+                list="list-positions"
+                value=""
+                placeholder="เลือกจากปุ่มด้านบน หรือพิมพ์เองได้อิสระ เช่น ผบ.หมู่ (ป.)"
+                data-target-preview="preview-position-wrapper"
+                class="w-full px-3.5 py-2 rounded-xl border border-slate-300 focus:border-blue-600 focus:ring-2 focus:ring-blue-100 outline-none text-base transition-all"
+              />
+              <datalist id="list-positions">
+                <option value="ผบ.หมู่"></option>
+                <option value="รอง สว."></option>
+                <option value="สว."></option>
+                <option value="รอง ผกก."></option>
+                <option value="ผกก."></option>
+              </datalist>
+            </div>
+            <p class="text-[11px] text-slate-500 mt-1">
+              คลิกปุ่มเพื่อพิมพ์ลงช่องทันที และสามารถพิมพ์แก้ไขหรือพิมพ์ต่อท้ายเองได้อิสระ
+            </p>
+          </div>
+
+          <div>
+            <label for="input-division" class="block text-sm font-medium text-slate-700 mb-1">
+              สังกัด/กอง/สำนักงาน <span class="text-xs font-normal text-slate-400">(แก้ไขหรือเว้นว่างได้)</span>
+            </label>
+            <input
+              id="input-division"
+              type="text"
+              value="ฝ่ายดนตรี กองสวัสดิการ สำนักงานกำลังพล สำนักงานตำรวจแห่งชาติ"
+              placeholder="เช่น ฝ่ายดนตรี กองสวัสดิการ สำนักงานกำลังพล สำนักงานตำรวจแห่งชาติ"
+              data-target-preview="preview-division-wrapper"
+              class="w-full px-3.5 py-1.5 rounded-xl border border-slate-300 focus:border-blue-600 focus:ring-2 focus:ring-blue-100 outline-none text-base transition-all"
+            />
+          </div>
+
+
+        </div>
+      </div>
+
+      <!-- Card 2: Signature Section (Optional) -->
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-4">
+        <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+          <div>
+            <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
+              <span class="w-6 h-6 rounded-full bg-blue-600 text-white text-xs flex items-center justify-center font-bold">2</span>
+              ส่วนลงชื่อและวงเล็บชื่อ
+            </h2>
+            <p class="text-xs text-slate-500 mt-0.5">
+              ผู้ใช้งานสามารถเลือกกรอก หรือเว้นว่างไว้เพื่อเซ็นด้วยปากกาภายหลังได้ตามต้องการ
+            </p>
+          </div>
+          <span class="px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-amber-50 text-amber-800 border border-amber-200">
+            กรอกหรือไม่กรอกก็ได้
+          </span>
+        </div>
+
+        <!-- Field: ลงชื่อ ........ -->
+        <div class="space-y-2.5">
+          <div class="flex items-center justify-between mb-0.5">
+            <label for="input-sign-line" class="block text-sm font-semibold text-slate-800">
+              ลงชื่อ ........ <span class="text-xs font-normal text-slate-500">(เว้นว่างได้หากเซ็นมือ)</span>
+            </label>
+            <div class="flex items-center gap-2">
+              <button
+                id="btn-copy-to-sign"
+                type="button"
+                class="text-xs text-blue-600 hover:text-blue-800 font-medium underline"
+                title="คัดลอกชื่อตัวอักษรใส่ในช่องลงชื่อ"
+              >
+                ใส่ชื่อในช่องลงชื่อ
+              </button>
+              <span class="text-slate-300">|</span>
+              <button
+                id="btn-clear-sign"
+                type="button"
+                class="text-xs text-rose-600 hover:text-rose-800 font-medium underline"
+                title="เว้นว่างช่องลงชื่อไว้เซ็นด้วยปากกา"
+              >
+                เว้นว่างไว้เซ็นมือ
+              </button>
+            </div>
+          </div>
+
+          <!-- Buttons for Online Signature Pad & Image Upload -->
+          <div class="flex items-center gap-2 flex-wrap">
+            <button
+              id="btn-open-sign-pad"
+              type="button"
+              class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 transition-all cursor-pointer shadow-xs select-none"
+              title="เปิดกระดานสำหรับวาดลายเซ็นสดด้วยเมาส์หรือนิ้วสัมผัส"
+            >
+              <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+              </svg>
+              <span>เซ็นชื่อออนไลน์</span>
+            </button>
+
+            <button
+              id="btn-trigger-upload-sign"
+              type="button"
+              class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition-all cursor-pointer shadow-xs select-none"
+              title="อัปโหลดรูปภาพลายเซ็น (PNG/JPG) เข้าสู่เอกสาร"
+            >
+              <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              <span>อัปโหลดรูปลายเซ็น</span>
+            </button>
+
+            <input
+              type="file"
+              id="input-file-sign"
+              accept="image/png, image/jpeg, image/jpg, image/webp"
+              class="hidden"
+            />
+          </div>
+
+          <!-- Active Signature Preview Card (Shown when signature image is attached) -->
+          <div id="sign-image-preview-card" class="hidden p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 items-center justify-between gap-3">
+            <div class="flex items-center gap-2.5 min-w-0">
+              <div class="w-14 h-9 rounded-lg bg-white border border-slate-200 p-1 flex items-center justify-center overflow-hidden flex-shrink-0 shadow-xs">
+                <img id="sign-thumb-img" src="" alt="ตัวอย่างลายเซ็น" class="max-h-full max-w-full object-contain" />
+              </div>
+              <div class="min-w-0">
+                <p class="text-xs font-semibold text-slate-800 truncate">มีรูปลายเซ็นแล้ว (จัดกึ่งกลางเส้นประ)</p>
+                <div class="flex items-center gap-2 mt-0.5">
+                  <span class="text-[10px] text-emerald-600 font-semibold">แสดงผลบน A4</span>
+                  <span class="text-slate-300">•</span>
+                  <label class="inline-flex items-center gap-1 text-[11px] text-slate-600 cursor-pointer">
+                    <span>ขนาด:</span>
+                    <input id="slider-sign-img-scale" type="range" min="28" max="60" value="44" class="w-14 h-1.5 accent-blue-600 cursor-pointer" />
+                  </label>
+                </div>
+              </div>
+            </div>
+            <button
+              id="btn-remove-sign-img"
+              type="button"
+              class="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors flex-shrink-0 cursor-pointer"
+              title="ลบลายเซ็นรูปภาพออก (เว้นว่างหรือใช้ตัวอักษรแทน)"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </button>
+          </div>
+
+          <input
+            id="input-sign-line"
+            type="text"
+            value=""
+            placeholder="เว้นว่างไว้เพื่อเซ็นชื่อจริงด้วยปากกา หรือพิมพ์ข้อความ..."
+            data-target-preview="preview-sign-line-wrapper"
+            class="w-full px-3.5 py-2 rounded-xl border border-slate-300 focus:border-blue-600 focus:ring-2 focus:ring-blue-100 outline-none text-base transition-all"
+          />
+        </div>
+
+        <!-- Field: (..............) with dynamic width expansion -->
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <label for="input-sign-paren" class="block text-sm font-semibold text-slate-800">
+              (..............) <span class="text-xs font-normal text-slate-500">(ชื่อตัวบรรจงในวงเล็บ — ขยายยาวขึ้นได้ตามชื่อผู้กรอก)</span>
+            </label>
+            <div class="flex items-center gap-2">
+              <button
+                id="btn-copy-to-paren"
+                type="button"
+                class="text-xs text-blue-600 hover:text-blue-800 font-medium underline"
+              >
+                ดึงจากช่อง "ข้าพเจ้า"
+              </button>
+              <span class="text-slate-300">|</span>
+              <button
+                id="btn-clear-paren"
+                type="button"
+                class="text-xs text-rose-600 hover:text-rose-800 font-medium underline"
+              >
+                เว้นว่าง
+              </button>
+            </div>
+          </div>
+          <input
+            id="input-sign-paren"
+            type="text"
+            value=""
+            placeholder="จะแสดงตามชื่อในช่องข้าพเจ้าให้อัตโนมัติทันที หรือพิมพ์ชื่อยาวได้เต็มที่"
+            data-target-preview="preview-sign-paren-wrapper"
+            class="w-full px-3.5 py-2 rounded-xl border border-slate-300 focus:border-blue-600 focus:ring-2 focus:ring-blue-100 outline-none text-base transition-all"
+          />
+          <div class="mt-2.5 p-3 rounded-xl bg-slate-50 border border-slate-200/80 space-y-2">
+            <div class="flex items-center justify-between">
+              <label class="inline-flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  id="chk-sync-paren"
+                  type="checkbox"
+                  checked
+                  class="w-4 h-4 rounded text-blue-600 border-slate-300 focus:ring-blue-500"
+                />
+                <span class="text-xs text-slate-700 font-medium">
+                  เชื่อมโยงชื่อในวงเล็บ `(..............)` ให้ตรงกับช่อง "ข้าพเจ้า" อัตโนมัติ
+                </span>
+              </label>
+              <span id="paren-width-badge" class="text-[11px] font-semibold text-blue-700 bg-blue-100/70 px-2 py-0.5 rounded-full">
+                ปรับขยายอัตโนมัติ
+              </span>
+            </div>
+            <div class="flex items-center gap-2 pt-1">
+              <span class="text-xs text-slate-600 whitespace-nowrap">ความกว้างบรรทัดลงชื่อและวงเล็บ:</span>
+              <input
+                id="slider-sign-width"
+                type="range"
+                min="240"
+                max="460"
+                value="268"
+                class="w-full accent-blue-600 cursor-pointer"
+              />
+              <span id="val-sign-width" class="text-xs font-mono font-semibold text-slate-700 min-w-[45px] text-right">268px</span>
+              <button
+                id="btn-reset-sign-width"
+                type="button"
+                class="text-[11px] text-slate-500 hover:text-blue-600 underline whitespace-nowrap"
+                title="คืนค่าความกว้างอัตโนมัติตามความยาวชื่อ"
+              >
+                อัตโนมัติ
+              </button>
+            </div>
+            <p class="text-[11px] text-slate-500 leading-normal">
+              ระบบจะขยายจุดไข่ปลาบรรทัด "ลงชื่อ....." และวงเล็บปิด ")" ให้ยาวเท่ากันพอดีตามความยาวของยศและชื่อ-นามสกุลโดยอัตโนมัติ หรือเลื่อนแถบด้านบนเพื่อปรับเองได้ตามใจชอบ
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 3: Font & Print Display Settings -->
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-4">
+        <div class="border-b border-slate-100 pb-3">
+          <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
+            <span class="w-6 h-6 rounded-full bg-slate-700 text-white text-xs flex items-center justify-center font-bold">3</span>
+            ตั้งค่าฟอนต์ TH Sarabun PSK และรูปแบบการปริ้น
+          </h2>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <!-- Font Size Selector -->
+          <div>
+            <label for="select-font-size" class="block text-xs font-semibold text-slate-700 mb-1">
+              ขนาดตัวอักษรข้อมูลที่กรอก
+            </label>
+            <select
+              id="select-font-size"
+              class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm text-slate-800 focus:border-blue-600 outline-none"
+            >
+              <option value="14px">15 pt (ตัวเล็กพอดีคำยาว)</option>
+              <option value="15.5px" selected>16 pt (มาตรฐานราชการ)</option>
+              <option value="17px">17 pt (ตัวขนาดกลาง)</option>
+              <option value="18.5px">18 pt (ตัวใหญ่ชัดเจน)</option>
+            </select>
+          </div>
+
+          <!-- Ink Color Selector -->
+          <div>
+            <label for="select-ink-color" class="block text-xs font-semibold text-slate-700 mb-1">
+              สีตัวอักษรที่กรอก
+            </label>
+            <select
+              id="select-ink-color"
+              class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm text-slate-800 focus:border-blue-600 outline-none"
+            >
+              <option value="#000000" selected>สีดำ (มาตรฐานงานพิมพ์ราชการ)</option>
+              <option value="#0b2e78">สีน้ำเงินเข้ม (เสมือนหมึกปากกา)</option>
+            </select>
+          </div>
+        </div>
+
+
+      </div>
+
+    </section>
+
+    <!-- Right Column: Live A4 Paper Preview (7 cols on desktop, min-w-0 prevents grid blowout) -->
+    <section class="lg:col-span-7 flex flex-col min-w-0">
+      <!-- Preview Control Bar -->
+      <div class="no-print bg-slate-800 text-white rounded-t-2xl px-4 py-2.5 flex flex-wrap items-center justify-between gap-2">
+        <div class="flex items-center gap-2">
+          <span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
+          <span class="text-xs sm:text-sm font-medium">
+            ตัวอย่างเอกสารจริง ขนาด A4 (เห็นครบเต็มแผ่น • คลิกที่ช่องบนกระดาษเพื่อแก้ไขได้)
+          </span>
+        </div>
+
+        <div class="flex items-center gap-1.5 flex-wrap">
+          <button
+            id="btn-zoom-page"
+            type="button"
+            class="px-2.5 py-1 rounded bg-blue-600 hover:bg-blue-500 text-xs font-medium transition-colors"
+            title="ย่อให้เห็นกระดาษ A4 เต็มแผ่นในหน้าจอเดียว"
+          >
+            เต็มแผ่น A4
+          </button>
+          <button
+            id="btn-zoom-width"
+            type="button"
+            class="px-2.5 py-1 rounded bg-slate-700 hover:bg-slate-600 text-xs font-medium transition-colors"
+            title="ขยายให้พอดีความกว้างกรอบแสดงผล"
+          >
+            พอดีความกว้าง
+          </button>
+          <button
+            id="btn-zoom-out"
+            type="button"
+            class="px-2.5 py-1 rounded bg-slate-700 hover:bg-slate-600 text-xs font-medium transition-colors"
+            title="ย่อขนาดตัวอย่าง"
+          >
+            ย่อ -
+          </button>
+          <button
+            id="btn-zoom-fit"
+            type="button"
+            class="px-2.5 py-1 rounded bg-slate-900 hover:bg-slate-700 text-xs font-semibold min-w-[48px] text-center transition-colors"
+            title="รีเซ็ตขนาดตัวอย่าง"
+          >
+            100%
+          </button>
+          <button
+            id="btn-zoom-in"
+            type="button"
+            class="px-2.5 py-1 rounded bg-slate-700 hover:bg-slate-600 text-xs font-medium transition-colors"
+            title="ขยายขนาดตัวอย่าง"
+          >
+            ขยาย +
+          </button>
+        </div>
+      </div>
+
+      <!-- Scrollable Viewport for A4 Sheet -->
+      <div
+        id="preview-scroll-area"
+        class="flex-1 bg-slate-200/90 border-x border-b border-slate-300 rounded-b-2xl p-3 sm:p-5 overflow-auto flex justify-center items-start min-w-0"
+      >
+        <!-- Exact scaled bounding box so transformed A4 sheet never overflows or clips -->
+        <div id="a4-size-box" class="relative mx-auto flex-shrink-0">
+          <div id="a4-scale-wrapper" class="origin-top-left transition-transform duration-150" style="width: 794px; height: 1123px;">
+            <!-- THE ACTUAL A4 DOCUMENT (Captured by html2pdf & window.print) -->
+            <div id="a4-paper" class="a4-page">
+
+              <!-- Main Heading Spacer -->
+
+              <!-- Main Centered Heading -->
+              <div class="static-form-element text-center mt-6 mb-11">
+                <h2 class="text-[16.5px] font-bold text-black tracking-normal">
+                  แบบยืนยันการลงทะเบียน PromptPay ด้วยเลขประจำตัวประชาชน
+                </h2>
+              </div>
+
+              <!-- Date Line (Right-aligned block starting around 54% from left, matching original form) -->
+              <div class="flex justify-end mb-3.5 pr-4">
+                <div class="w-[42%] form-line-row">
+                  <span class="form-label static-form-element mr-1">วันที่</span>
+                  <div
+                    id="preview-date-wrapper"
+                    data-focus-input="input-date"
+                    class="dotted-field-wrapper"
+                    title="คลิกเพื่อแก้ไขวันที่"
+                  >
+                    <div class="dotted-leader static-form-element">
+                      ....................................................................................................
+                    </div>
+                    <div id="preview-date-val" class="filled-value filled-value-center" style="font-size: 15.5px;">
+                      ๒๑ ต.ค. ๖๙
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Line 1: ข้าพเจ้า (Indented 56px from left margin, matching original form) -->
+              <div class="form-line-row pl-[56px] pr-8 mb-3">
+                <span class="form-label static-form-element mr-1">ข้าพเจ้า</span>
+                <div
+                  id="preview-fullname-wrapper"
+                  data-focus-input="input-fullname"
+                  class="dotted-field-wrapper"
+                  title="คลิกเพื่อแก้ไขชื่อ-นามสกุล (ข้าพเจ้า)"
+                >
+                  <div class="dotted-leader static-form-element">
+                    ..........................................................................................................................................................................................................
+                  </div>
+                  <div id="preview-fullname-val" class="filled-value" style="font-size: 15.5px; padding-left: 8px;"></div>
+                </div>
+              </div>
+
+              <!-- Line 2: ตำแหน่ง + เลขประจำตัวประชาชน 13 หลัก (All 13 boxes guaranteed inside A4 margin) -->
+              <div class="form-line-row mb-3 flex items-baseline">
+                <span class="form-label static-form-element mr-1">ตำแหน่ง</span>
+                <div
+                  id="preview-position-wrapper"
+                  data-focus-input="input-position"
+                  class="dotted-field-wrapper"
+                  style="flex: 1 1 0%; min-width: 80px;"
+                  title="คลิกเพื่อแก้ไขตำแหน่ง"
+                >
+                  <div class="dotted-leader static-form-element">
+                    ........................................................................................
+                  </div>
+                  <div id="preview-position-val" class="filled-value filled-value-center" style="font-size: 15.5px;"></div>
+                </div>
+
+                <span class="form-label static-form-element ml-1.5 mr-1">เลขประจำตัวประชาชน</span>
+
+                <!-- 13 Boxes (1 - 4 - 5 - 2 - 1) -->
+                <div
+                  id="preview-cid-wrapper"
+                  data-focus-input="input-cid-raw"
+                  class="cid-boxes-container"
+                  title="คลิกเพื่อแก้ไขเลขประจำตัวประชาชน 13 หลัก"
+                >
+                  <!-- Group 1 (1 digit) -->
+                  <div class="cid-group">
+                    <div class="cid-box" id="doc-cid-0"></div>
+                  </div>
+                  <span class="cid-hyphen static-form-element">-</span>
+
+                  <!-- Group 2 (4 digits) -->
+                  <div class="cid-group">
+                    <div class="cid-box" id="doc-cid-1"></div>
+                    <div class="cid-box" id="doc-cid-2"></div>
+                    <div class="cid-box" id="doc-cid-3"></div>
+                    <div class="cid-box" id="doc-cid-4"></div>
+                  </div>
+                  <span class="cid-hyphen static-form-element">-</span>
+
+                  <!-- Group 3 (5 digits) -->
+                  <div class="cid-group">
+                    <div class="cid-box" id="doc-cid-5"></div>
+                    <div class="cid-box" id="doc-cid-6"></div>
+                    <div class="cid-box" id="doc-cid-7"></div>
+                    <div class="cid-box" id="doc-cid-8"></div>
+                    <div class="cid-box" id="doc-cid-9"></div>
+                  </div>
+                  <span class="cid-hyphen static-form-element">-</span>
+
+                  <!-- Group 4 (2 digits) -->
+                  <div class="cid-group">
+                    <div class="cid-box" id="doc-cid-10"></div>
+                    <div class="cid-box" id="doc-cid-11"></div>
+                  </div>
+                  <span class="cid-hyphen static-form-element">-</span>
+
+                  <!-- Group 5 (1 digit) -->
+                  <div class="cid-group">
+                    <div class="cid-box" id="doc-cid-12"></div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Line 3: สังกัด/กอง/สำนักงาน -->
+              <div class="form-line-row mb-6">
+                <span class="form-label static-form-element mr-1">สังกัด/กอง/สำนักงาน</span>
+                <div
+                  id="preview-division-wrapper"
+                  data-focus-input="input-division"
+                  class="dotted-field-wrapper"
+                  title="คลิกเพื่อแก้ไขสังกัด/กอง/สำนักงาน"
+                >
+                  <div class="dotted-leader static-form-element">
+                    ..........................................................................................................................................................................................................
+                  </div>
+                  <div id="preview-division-val" class="filled-value" style="font-size: 15.5px;">ฝ่ายดนตรี กองสวัสดิการ สำนักงานกำลังพล สำนักงานตำรวจแห่งชาติ</div>
+                </div>
+              </div>
+
+              <!-- Body Confirmation Paragraph (Matches exact 2-line layout of original form) -->
+              <div class="static-form-element mb-11 text-[15.5px] leading-[1.7] text-black">
+                <p class="pl-[56px] whitespace-nowrap">
+                  ข้าพเจ้าได้ดำเนินการลงทะเบียน PromptPay โดยใช้เลขประจำตัวประชาชนของข้าพเจ้า ผูกกับบัญชี
+                </p>
+                <p class="whitespace-nowrap">
+                  เงินฝากธนาคารเพื่อใช้รับเงินเดือน/ค่าจ้างเรียบร้อยแล้ว โดยขอรับรองว่าข้อความดังกล่าวเป็นจริงทุกประการ
+                </p>
+              </div>
+
+              <!-- Signature Block: ลงชื่อ.................................... and (...................................) with ( aligned at อ of ลงชื่อ and ) aligned at end of dots -->
+              <div id="signature-outer-block" class="flex flex-col items-start pl-[285px] mb-24">
+                <div id="signature-container-box" class="space-y-2.5 flex flex-col items-start">
+                  <!-- Row 1: ลงชื่อ....................................................... -->
+                  <div id="signature-sign-row" class="form-line-row flex items-baseline" style="width: 268px; min-width: 268px;">
+                    <span id="signature-sign-label" class="form-label static-form-element flex-shrink-0">ลงชื่อ</span>
+                    <div
+                      id="preview-sign-line-wrapper"
+                      data-focus-input="input-sign-line"
+                      class="dotted-field-wrapper flex-1 min-w-0"
+                      title="คลิกเพื่อแก้ไขช่องลงชื่อ (หรือเว้นว่างไว้เซ็นมือ)"
+                    >
+                      <div id="preview-sign-line-dots" class="dotted-leader static-form-element">
+                        ................................................................................................................................................................................................................................................
+                      </div>
+                      <div id="preview-sign-line-val" class="filled-value filled-value-center" style="font-size: 15.5px;"></div>
+                      <img id="preview-sign-img" src="" alt="ลายเซ็น" class="hidden absolute left-1/2 -translate-x-1/2 bottom-[2px] max-h-[44px] max-w-[85%] object-contain pointer-events-none select-none z-10" />
+                    </div>
+                  </div>
+
+                  <!-- Row 2: (......................................................) with ( at อ and ) at right end of Row 1 -->
+                  <div id="signature-paren-row" class="form-line-row flex items-baseline justify-start transition-all duration-150" style="width: 268px; min-width: 268px;">
+                    <div class="relative flex items-baseline flex-shrink-0">
+                      <span id="signature-paren-indent" class="form-label invisible select-none pointer-events-none" aria-hidden="true">ลงชื่อ</span>
+                      <span id="preview-paren-open" class="form-label static-form-element absolute right-0 select-none">(</span>
+                    </div>
+                    <div
+                      id="preview-sign-paren-wrapper"
+                      data-focus-input="input-sign-paren"
+                      class="dotted-field-wrapper flex-1 min-w-0"
+                      title="คลิกเพื่อแก้ไขชื่อในวงเล็บ (หรือเว้นว่าง)"
+                    >
+                      <div id="preview-sign-paren-dots" class="dotted-leader static-form-element">
+                        ................................................................................................................................................................................................................................................
+                      </div>
+                      <div id="preview-sign-paren-val" class="filled-value filled-value-center" style="font-size: 15.5px;"></div>
+                    </div>
+                    <span id="preview-paren-close" class="form-label static-form-element select-none flex-shrink-0">)</span>
+                  </div>
+                  <span id="sign-paren-measure" class="filled-value invisible fixed pointer-events-none whitespace-nowrap" style="left: -9999px; top: -9999px; width: auto; right: auto; font-size: 15.5px;" aria-hidden="true"></span>
+                </div>
+              </div>
+
+
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+  </div>
+
+  <!-- Modal: Online Signature Pad -->
+  <div
+    id="modal-sign-pad"
+    class="no-print fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-xs hidden items-center justify-center p-4"
+  >
+    <div class="bg-white rounded-2xl max-w-lg w-full flex flex-col shadow-2xl overflow-hidden border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
+      <!-- Modal Header -->
+      <div class="px-5 py-3.5 border-b border-slate-200 flex items-center justify-between bg-slate-50/80">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center shadow-xs">
+            <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+            </svg>
+          </div>
+          <div>
+            <h3 class="font-bold text-slate-900 text-sm sm:text-base">
+              เซ็นชื่อออนไลน์ (Digital Signature)
+            </h3>
+            <p class="text-[11px] text-slate-500">
+              ใช้เมาส์ นิ้วสัมผัส หรือปากกาสไตลัส วาดลายเซ็นลงในกรอบ
+            </p>
+          </div>
+        </div>
+        <button
+          id="btn-close-sign-pad"
+          type="button"
+          class="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-colors cursor-pointer"
+        >
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <!-- Controls: Pen Color & Thickness -->
+      <div class="px-5 py-2.5 bg-white border-b border-slate-100 flex items-center justify-between gap-3 flex-wrap">
+        <div class="flex items-center gap-2">
+          <span class="text-xs font-medium text-slate-600">สีหมึก:</span>
+          <button
+            type="button"
+            class="btn-pad-color w-6 h-6 rounded-full bg-black border-2 border-blue-600 shadow-xs cursor-pointer transition-transform active:scale-95"
+            data-color="#000000"
+            title="สีดำ"
+          ></button>
+          <button
+            type="button"
+            class="btn-pad-color w-6 h-6 rounded-full bg-[#0b2e78] border-2 border-transparent hover:border-slate-300 shadow-xs cursor-pointer transition-transform active:scale-95"
+            data-color="#0b2e78"
+            title="สีน้ำเงินเข้ม"
+          ></button>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <span class="text-xs font-medium text-slate-600">ขนาดเส้น:</span>
+          <select id="select-pad-line-width" class="text-xs px-2 py-1 rounded-lg border border-slate-300 bg-white text-slate-800 outline-none">
+            <option value="2">บาง (2px)</option>
+            <option value="3" selected>ปานกลาง (3px)</option>
+            <option value="4">หนา (4px)</option>
+          </select>
+        </div>
+
+        <button
+          id="btn-clear-canvas"
+          type="button"
+          class="text-xs font-semibold text-rose-600 hover:text-rose-800 hover:bg-rose-50 px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
+        >
+          ล้างกระดาน
+        </button>
+      </div>
+
+      <!-- Canvas Drawing Area -->
+      <div class="p-5 bg-slate-100 flex flex-col items-center justify-center select-none">
+        <div class="relative w-full max-w-[440px] h-[190px] bg-white rounded-xl border-2 border-dashed border-slate-300 shadow-inner overflow-hidden cursor-crosshair">
+          <canvas
+            id="sign-canvas"
+            width="880"
+            height="380"
+            class="w-full h-full block touch-none"
+          ></canvas>
+          <div class="absolute inset-x-8 bottom-9 border-b border-slate-200 pointer-events-none text-[11px] text-slate-300 text-center select-none pb-0.5">
+            เส้นแนวนอนอ้างอิงตำแหน่งลงชื่อ
+          </div>
+        </div>
+        <p class="text-[11px] text-slate-500 mt-2 text-center">
+          ระบบจะตัดขอบโปร่งใสให้อัตโนมัติ และนำไปจัดวางกึ่งกลางเส้นประในเอกสาร A4 พอดี
+        </p>
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="px-5 py-3 border-t border-slate-200 bg-slate-50 flex items-center justify-end gap-2.5">
+        <button
+          id="btn-cancel-sign-pad"
+          type="button"
+          class="px-4 py-2 rounded-xl text-xs sm:text-sm font-medium text-slate-700 bg-white hover:bg-slate-100 border border-slate-300 transition-colors cursor-pointer"
+        >
+          ยกเลิก
+        </button>
+        <button
+          id="btn-save-sign-pad"
+          type="button"
+          class="px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 shadow-sm transition-colors flex items-center gap-1.5 cursor-pointer"
+        >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+          </svg>
+          <span>นำลายเซ็นไปใช้</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div
+    id="toast-banner"
+    class="no-print fixed bottom-5 right-5 z-50 hidden items-center gap-2.5 px-4 py-3 rounded-xl bg-slate-900 text-white text-sm font-medium shadow-xl border border-slate-700"
+  >
+    <span id="toast-message">บันทึกไฟล์ PDF เรียบร้อยแล้ว</span>
+  </div>
+
+  <script>
+    (function () {
+      // Thai <-> Arabic Numeral Maps
+      const thaiDigits = ['๐', '๑', '๒', '๓', '๔', '๕', '๖', '๗', '๘', '๙'];
+      const arabicDigits = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+
+      // Active Numeral Mode: 'thai' (default) or 'arabic'
+      let numeralMode = 'thai';
+
+      function toThaiNumerals(str) {
+        if (!str) return '';
+        return String(str).replace(/[0-9]/g, function (d) {
+          return thaiDigits[parseInt(d, 10)];
+        });
+      }
+
+      function toArabicNumerals(str) {
+        if (!str) return '';
+        return String(str).replace(/[๐-๙]/g, function (d) {
+          const idx = thaiDigits.indexOf(d);
+          return idx !== -1 ? arabicDigits[idx] : d;
+        });
+      }
+
+      function convertCurrentMode(str) {
+        return numeralMode === 'thai' ? toThaiNumerals(str) : toArabicNumerals(str);
+      }
+
+      // Extract only digits (either Thai or Arabic), max 13 characters
+      function extract13Digits(str) {
+        if (!str) return [];
+        const matches = String(str).match(/[0-9๐-๙]/g);
+        if (!matches) return [];
+        return matches.slice(0, 13);
+      }
+
+      // Format 13-digit array as X-XXXX-XXXXX-XX-X
+      function formatCidWithHyphens(digitsArr) {
+        const s = digitsArr.join('');
+        let out = '';
+        for (let i = 0; i < s.length; i++) {
+          if (i === 1 || i === 5 || i === 10 || i === 12) {
+            out += '-';
+          }
+          out += s[i];
+        }
+        return out;
+      }
+
+      // DOM Elements
+      const inputDate = document.getElementById('input-date');
+      const inputFullname = document.getElementById('input-fullname');
+      const inputCidRaw = document.getElementById('input-cid-raw');
+      const inputPosition = document.getElementById('input-position');
+      const inputDivision = document.getElementById('input-division');
+      const inputSignLine = document.getElementById('input-sign-line');
+      const inputSignParen = document.getElementById('input-sign-paren');
+      const chkSyncParen = document.getElementById('chk-sync-paren');
+
+      const sliderSignWidth = document.getElementById('slider-sign-width');
+      const valSignWidth = document.getElementById('val-sign-width');
+      const btnResetSignWidth = document.getElementById('btn-reset-sign-width');
+      const parenWidthBadge = document.getElementById('paren-width-badge');
+      const signatureSignRow = document.getElementById('signature-sign-row');
+      const signatureParenRow = document.getElementById('signature-paren-row');
+      const signatureOuterBlock = document.getElementById('signature-outer-block');
+
+      const btnToThaiNum = document.getElementById('btn-to-thai-num');
+      const btnToArabicNum = document.getElementById('btn-to-arabic-num');
+      const numModeIndicator = document.getElementById('num-mode-indicator');
+
+      const previewDateVal = document.getElementById('preview-date-val');
+      const previewFullnameVal = document.getElementById('preview-fullname-val');
+      const previewPositionVal = document.getElementById('preview-position-val');
+      const previewDivisionVal = document.getElementById('preview-division-val');
+      const previewSignLineVal = document.getElementById('preview-sign-line-val');
+      const previewSignParenVal = document.getElementById('preview-sign-paren-val');
+
+      const cidCountBadge = document.getElementById('cid-count-badge');
+      const miniCidGrid = document.getElementById('mini-cid-grid');
+
+      const selectFontSize = document.getElementById('select-font-size');
+      const selectInkColor = document.getElementById('select-ink-color');
+
+      const a4Paper = document.getElementById('a4-paper');
+      const a4SizeBox = document.getElementById('a4-size-box');
+      const a4ScaleWrapper = document.getElementById('a4-scale-wrapper');
+      const previewScrollArea = document.getElementById('preview-scroll-area');
+      const zoomLabel = document.getElementById('btn-zoom-fit');
+
+      // State for 13 digits
+      let cidDigits = ['', '', '', '', '', '', '', '', '', '', '', '', ''];
+      let currentZoom = 1;
+      let zoomMode = 'page'; // 'page' (fit entire A4 sheet) or 'width' (fit width) or 'manual'
+      let isManualSignWidth = false;
+
+      // Toast helper
+      let toastTimer = null;
+      function showToast(msg) {
+        const banner = document.getElementById('toast-banner');
+        const textEl = document.getElementById('toast-message');
+        textEl.textContent = msg;
+        banner.classList.remove('hidden');
+        banner.classList.add('flex');
+        if (toastTimer) clearTimeout(toastTimer);
+        toastTimer = setTimeout(function () {
+          banner.classList.add('hidden');
+          banner.classList.remove('flex');
+        }, 3200);
+      }
+
+
+      // ==========================================
+      // DIGITAL SIGNATURE & IMAGE UPLOAD LOGIC
+      // ==========================================
+      let activeSignatureDataUrl = null;
+
+      const previewSignImg = document.getElementById('preview-sign-img');
+      const signThumbImg = document.getElementById('sign-thumb-img');
+      const signImageCard = document.getElementById('sign-image-preview-card');
+      const sliderSignImgScale = document.getElementById('slider-sign-img-scale');
+
+      const modalSignPad = document.getElementById('modal-sign-pad');
+      const btnOpenSignPad = document.getElementById('btn-open-sign-pad');
+      const btnCloseSignPad = document.getElementById('btn-close-sign-pad');
+      const btnCancelSignPad = document.getElementById('btn-cancel-sign-pad');
+      const btnSaveSignPad = document.getElementById('btn-save-sign-pad');
+      const btnClearCanvas = document.getElementById('btn-clear-canvas');
+      const signCanvas = document.getElementById('sign-canvas');
+      const padCtx = signCanvas ? signCanvas.getContext('2d', { willReadFrequently: true }) : null;
+
+      const btnTriggerUploadSign = document.getElementById('btn-trigger-upload-sign');
+      const inputFileSign = document.getElementById('input-file-sign');
+      const btnRemoveSignImg = document.getElementById('btn-remove-sign-img');
+
+      let isDrawingPad = false;
+      let hasDrawnPad = false;
+      let padColor = '#000000';
+      let padLineWidth = 3;
+      let lastPadX = 0;
+      let lastPadY = 0;
+
+      function setSignatureImage(dataUrl) {
+        activeSignatureDataUrl = dataUrl;
+        if (previewSignImg) {
+          previewSignImg.src = dataUrl;
+          previewSignImg.classList.remove('hidden');
+          const scale = sliderSignImgScale ? sliderSignImgScale.value : 44;
+          previewSignImg.style.maxHeight = scale + 'px';
+        }
+        if (signThumbImg) {
+          signThumbImg.src = dataUrl;
+        }
+        if (signImageCard) {
+          signImageCard.classList.remove('hidden');
+          signImageCard.classList.add('flex');
+        }
+        if (previewSignLineVal) {
+          previewSignLineVal.textContent = '';
+        }
+      }
+
+      function clearSignatureImage() {
+        activeSignatureDataUrl = null;
+        if (previewSignImg) {
+          previewSignImg.src = '';
+          previewSignImg.classList.add('hidden');
+        }
+        if (signThumbImg) {
+          signThumbImg.src = '';
+        }
+        if (signImageCard) {
+          signImageCard.classList.add('hidden');
+          signImageCard.classList.remove('flex');
+        }
+        if (inputFileSign) {
+          inputFileSign.value = '';
+        }
+        if (previewSignLineVal) {
+          previewSignLineVal.textContent = inputSignLine.value;
+        }
+      }
+
+      if (sliderSignImgScale) {
+        sliderSignImgScale.addEventListener('input', function () {
+          if (previewSignImg) {
+            previewSignImg.style.maxHeight = sliderSignImgScale.value + 'px';
+          }
+        });
+      }
+
+      if (btnRemoveSignImg) {
+        btnRemoveSignImg.addEventListener('click', function () {
+          clearSignatureImage();
+          showToast('ลบลายเซ็นรูปภาพออกเรียบร้อยแล้ว');
+        });
+      }
+
+      // Crop transparent margins helper
+      function trimCanvasPixels(sourceCanvas) {
+        const sCtx = sourceCanvas.getContext('2d', { willReadFrequently: true });
+        const w = sourceCanvas.width;
+        const h = sourceCanvas.height;
+        const imgData = sCtx.getImageData(0, 0, w, h);
+        const data = imgData.data;
+
+        let minX = w, maxX = 0, minY = h, maxY = 0;
+        let found = false;
+
+        for (let y = 0; y < h; y++) {
+          for (let x = 0; x < w; x++) {
+            const alpha = data[(y * w + x) * 4 + 3];
+            if (alpha > 15) {
+              if (x < minX) minX = x;
+              if (x > maxX) maxX = x;
+              if (y < minY) minY = y;
+              if (y > maxY) maxY = y;
+              found = true;
+            }
+          }
+        }
+
+        if (!found) return null;
+
+        const pad = 12;
+        const cropX = Math.max(0, minX - pad);
+        const cropY = Math.max(0, minY - pad);
+        const cropW = Math.min(w - cropX, (maxX - minX) + pad * 2);
+        const cropH = Math.min(h - cropY, (maxY - minY) + pad * 2);
+
+        const trimmed = document.createElement('canvas');
+        trimmed.width = cropW;
+        trimmed.height = cropH;
+        const tCtx = trimmed.getContext('2d');
+        tCtx.drawImage(sourceCanvas, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
+
+        return trimmed.toDataURL('image/png');
+      }
+
+      // Online Signature Pad Drawing
+      function getPadCoordinates(e) {
+        const rect = signCanvas.getBoundingClientRect();
+        const scaleX = signCanvas.width / rect.width;
+        const scaleY = signCanvas.height / rect.height;
+        let clientX = e.clientX;
+        let clientY = e.clientY;
+        if (e.touches && e.touches.length > 0) {
+          clientX = e.touches[0].clientX;
+          clientY = e.touches[0].clientY;
+        }
+        return {
+          x: (clientX - rect.left) * scaleX,
+          y: (clientY - rect.top) * scaleY
+        };
+      }
+
+      function startPadDraw(e) {
+        if (!padCtx) return;
+        isDrawingPad = true;
+        hasDrawnPad = true;
+        const pos = getPadCoordinates(e);
+        lastPadX = pos.x;
+        lastPadY = pos.y;
+
+        padCtx.beginPath();
+        padCtx.strokeStyle = padColor;
+        padCtx.fillStyle = padColor;
+        padCtx.lineWidth = padLineWidth * 2;
+        padCtx.lineCap = 'round';
+        padCtx.lineJoin = 'round';
+        padCtx.arc(lastPadX, lastPadY, (padLineWidth * 2) / 2, 0, Math.PI * 2);
+        padCtx.fill();
+        padCtx.beginPath();
+        padCtx.moveTo(lastPadX, lastPadY);
+      }
+
+      function movePadDraw(e) {
+        if (!isDrawingPad || !padCtx) return;
+        if (e.cancelable) e.preventDefault();
+        const pos = getPadCoordinates(e);
+        const midX = (lastPadX + pos.x) / 2;
+        const midY = (lastPadY + pos.y) / 2;
+        padCtx.quadraticCurveTo(lastPadX, lastPadY, midX, midY);
+        padCtx.stroke();
+        padCtx.beginPath();
+        padCtx.moveTo(midX, midY);
+        lastPadX = pos.x;
+        lastPadY = pos.y;
+      }
+
+      function endPadDraw() {
+        if (!isDrawingPad || !padCtx) return;
+        isDrawingPad = false;
+        padCtx.lineTo(lastPadX, lastPadY);
+        padCtx.stroke();
+        padCtx.closePath();
+      }
+
+      if (signCanvas) {
+        signCanvas.addEventListener('mousedown', startPadDraw);
+        window.addEventListener('mousemove', movePadDraw);
+        window.addEventListener('mouseup', endPadDraw);
+
+        signCanvas.addEventListener('touchstart', startPadDraw, { passive: false });
+        signCanvas.addEventListener('touchmove', movePadDraw, { passive: false });
+        window.addEventListener('touchend', endPadDraw);
+      }
+
+      function resetPadCanvas() {
+        if (!padCtx) return;
+        padCtx.clearRect(0, 0, signCanvas.width, signCanvas.height);
+        hasDrawnPad = false;
+      }
+
+      if (btnClearCanvas) {
+        btnClearCanvas.addEventListener('click', resetPadCanvas);
+      }
+
+      // Pen Color Palette in Modal
+      document.querySelectorAll('.btn-pad-color').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          padColor = btn.getAttribute('data-color') || '#000000';
+          document.querySelectorAll('.btn-pad-color').forEach(function (b) {
+            b.className = 'btn-pad-color w-6 h-6 rounded-full border-2 border-transparent hover:border-slate-300 shadow-xs cursor-pointer transition-transform active:scale-95';
+          });
+          btn.className = 'btn-pad-color w-6 h-6 rounded-full border-2 border-blue-600 shadow-xs cursor-pointer transition-transform active:scale-95';
+        });
+      });
+
+      const selectPadLineWidth = document.getElementById('select-pad-line-width');
+      if (selectPadLineWidth) {
+        selectPadLineWidth.addEventListener('change', function () {
+          padLineWidth = parseInt(selectPadLineWidth.value, 10) || 3;
+        });
+      }
+
+      // Open Signature Pad Modal
+      if (btnOpenSignPad && modalSignPad) {
+        btnOpenSignPad.addEventListener('click', function () {
+          modalSignPad.classList.remove('hidden');
+          modalSignPad.classList.add('flex');
+          resetPadCanvas();
+        });
+      }
+
+      function closeSignPadModal() {
+        if (modalSignPad) {
+          modalSignPad.classList.add('hidden');
+          modalSignPad.classList.remove('flex');
+        }
+      }
+
+      if (btnCloseSignPad) btnCloseSignPad.addEventListener('click', closeSignPadModal);
+      if (btnCancelSignPad) btnCancelSignPad.addEventListener('click', closeSignPadModal);
+
+      if (modalSignPad) {
+        modalSignPad.addEventListener('click', function (e) {
+          if (e.target === modalSignPad) {
+            closeSignPadModal();
+          }
+        });
+      }
+
+      // Save Signature Pad
+      if (btnSaveSignPad) {
+        btnSaveSignPad.addEventListener('click', function () {
+          if (!hasDrawnPad) {
+            showToast('กรุณาวาดลายเซ็นในกรอบก่อนกดนำไปใช้');
+            return;
+          }
+          const trimmed = trimCanvasPixels(signCanvas);
+          if (!trimmed) {
+            showToast('กรุณาวาดลายเซ็นในกรอบก่อนกดนำไปใช้');
+            return;
+          }
+          setSignatureImage(trimmed);
+          closeSignPadModal();
+          showToast('นำลายเซ็นออนไลน์ไปจัดวางกึ่งกลางช่องลงชื่อแล้ว');
+        });
+      }
+
+      // Upload Signature Image File
+      if (btnTriggerUploadSign && inputFileSign) {
+        btnTriggerUploadSign.addEventListener('click', function () {
+          inputFileSign.click();
+        });
+
+        inputFileSign.addEventListener('change', function () {
+          const file = inputFileSign.files && inputFileSign.files[0];
+          if (!file) return;
+
+          const reader = new FileReader();
+          reader.onload = function (evt) {
+            const img = new Image();
+            img.onload = function () {
+              const oc = document.createElement('canvas');
+              const maxDim = 1200;
+              let w = img.width;
+              let h = img.height;
+              if (w > maxDim || h > maxDim) {
+                if (w > h) {
+                  h = Math.round((h * maxDim) / w);
+                  w = maxDim;
+                } else {
+                  w = Math.round((w * maxDim) / h);
+                  h = maxDim;
+                }
+              }
+              oc.width = w;
+              oc.height = h;
+              const oCtx = oc.getContext('2d', { willReadFrequently: true });
+              oCtx.drawImage(img, 0, 0, w, h);
+
+              const imgData = oCtx.getImageData(0, 0, w, h);
+              const data = imgData.data;
+
+              // Check if image already has transparent pixels
+              let hasAlpha = false;
+              for (let i = 3; i < data.length; i += 4) {
+                if (data[i] < 200) {
+                  hasAlpha = true;
+                  break;
+                }
+              }
+
+              // Auto-remove solid white/paper background if it was taken as a photo
+              if (!hasAlpha) {
+                for (let i = 0; i < data.length; i += 4) {
+                  const r = data[i], g = data[i + 1], b = data[i + 2];
+                  const brightness = 0.299 * r + 0.587 * g + 0.114 * b;
+                  if (brightness > 210) {
+                    data[i + 3] = 0;
+                  } else if (brightness > 165) {
+                    data[i + 3] = Math.round(((210 - brightness) / 45) * 255);
+                  }
+                }
+                oCtx.putImageData(imgData, 0, 0);
+              }
+
+              const trimmedUrl = trimCanvasPixels(oc) || oc.toDataURL('image/png');
+              setSignatureImage(trimmedUrl);
+              showToast('อัปโหลดและจัดวางรูปลายเซ็นกึ่งกลางเส้นประเรียบร้อยแล้ว');
+            };
+            img.src = evt.target.result;
+          };
+          reader.readAsDataURL(file);
+        });
+      }
+
+      // Update active toggle buttons style based on numeralMode
+      function updateNumeralModeUI() {
+        if (numeralMode === 'thai') {
+          btnToThaiNum.className = 'px-2.5 py-1 text-xs font-semibold rounded-lg bg-blue-600 text-white shadow-xs hover:bg-blue-700 transition-all flex items-center gap-1';
+          btnToThaiNum.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-white"></span><span>เลขไทย (๐-๙)</span>';
+          btnToArabicNum.className = 'px-2.5 py-1 text-xs font-medium rounded-lg text-slate-600 hover:text-slate-900 hover:bg-white transition-all flex items-center gap-1';
+          btnToArabicNum.innerHTML = '<span>อารบิก (0-9)</span>';
+          if (numModeIndicator) {
+            numModeIndicator.textContent = 'โหมดปัจจุบัน: แปลงเป็นเลขไทยอัตโนมัติ (๐-๙)';
+            numModeIndicator.className = 'text-[10px] text-blue-700 font-medium';
+          }
+        } else {
+          btnToArabicNum.className = 'px-2.5 py-1 text-xs font-semibold rounded-lg bg-blue-600 text-white shadow-xs hover:bg-blue-700 transition-all flex items-center gap-1';
+          btnToArabicNum.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-white"></span><span>อารบิก (0-9)</span>';
+          btnToThaiNum.className = 'px-2.5 py-1 text-xs font-medium rounded-lg text-slate-600 hover:text-slate-900 hover:bg-white transition-all flex items-center gap-1';
+          btnToThaiNum.innerHTML = '<span>เลขไทย (๐-๙)</span>';
+          if (numModeIndicator) {
+            numModeIndicator.textContent = 'โหมดปัจจุบัน: แปลงเป็นเลขอารบิกอัตโนมัติ (0-9)';
+            numModeIndicator.className = 'text-[10px] text-slate-600 font-medium';
+          }
+        }
+      }
+
+      // Switch mode and convert whole page
+      function setNumeralMode(mode, showNotification) {
+        numeralMode = mode;
+        updateNumeralModeUI();
+
+        const converter = mode === 'thai' ? toThaiNumerals : toArabicNumerals;
+
+        inputDate.value = converter(inputDate.value);
+        inputCidRaw.value = converter(inputCidRaw.value);
+        inputPosition.value = converter(inputPosition.value);
+        inputDivision.value = converter(inputDivision.value);
+        inputFullname.value = converter(inputFullname.value);
+        inputSignLine.value = converter(inputSignLine.value);
+        inputSignParen.value = converter(inputSignParen.value);
+
+        cidDigits = cidDigits.map(function (d) { return converter(d); });
+        syncCidViews(false);
+        updatePreviewText();
+
+        if (showNotification) {
+          if (mode === 'thai') {
+            showToast('แปลงตัวเลขทั้งหมดในเอกสารเป็นเลขไทย (๐-๙) เรียบร้อยแล้ว');
+          } else {
+            showToast('แปลงตัวเลขทั้งหมดในเอกสารเป็นเลขอารบิก (0-9) เรียบร้อยแล้ว');
+          }
+        }
+      }
+
+      // Input helper to auto-convert digits while user types in text inputs, preserving cursor position
+      function handleAutoNumeralInput(inputElement) {
+        const val = inputElement.value;
+        const targetConverter = numeralMode === 'thai' ? toThaiNumerals : toArabicNumerals;
+        const converted = targetConverter(val);
+
+        if (val !== converted) {
+          const start = inputElement.selectionStart;
+          const end = inputElement.selectionEnd;
+          inputElement.value = converted;
+          try {
+            inputElement.setSelectionRange(start, end);
+          } catch (e) {}
+        }
+      }
+
+      // Build 13 mini input boxes in the left control panel
+      const miniInputs = [];
+      function buildMiniCidBoxes() {
+        miniCidGrid.innerHTML = '';
+        const groupBreaks = [1, 5, 10, 12];
+        for (let i = 0; i < 13; i++) {
+          if (groupBreaks.indexOf(i) !== -1) {
+            const dash = document.createElement('span');
+            dash.className = 'text-slate-400 font-bold text-xs px-0.5';
+            dash.textContent = '-';
+            miniCidGrid.appendChild(dash);
+          }
+          const box = document.createElement('input');
+          box.type = 'text';
+          box.maxLength = 1;
+          box.value = cidDigits[i] || '';
+          box.setAttribute('aria-label', 'เลขประจำตัวประชาชนหลักที่ ' + (i + 1));
+          box.className = 'w-6 h-8 text-center rounded border border-slate-300 bg-white focus:border-blue-600 focus:ring-2 focus:ring-blue-100 outline-none text-sm font-bold text-slate-900';
+
+          (function (index) {
+            box.addEventListener('input', function (e) {
+              const val = e.target.value;
+              const match = val.match(/[0-9๐-๙]/);
+              if (match) {
+                const convertedDigit = numeralMode === 'thai' ? toThaiNumerals(match[0]) : toArabicNumerals(match[0]);
+                cidDigits[index] = convertedDigit;
+                box.value = convertedDigit;
+                if (index < 12) {
+                  miniInputs[index + 1].focus();
+                  miniInputs[index + 1].select();
+                }
+              } else {
+                cidDigits[index] = '';
+                box.value = '';
+              }
+              syncCidViews(false);
+            });
+
+            box.addEventListener('keydown', function (e) {
+              if (e.key === 'Backspace' && !box.value && index > 0) {
+                cidDigits[index - 1] = '';
+                miniInputs[index - 1].value = '';
+                miniInputs[index - 1].focus();
+                syncCidViews(false);
+                e.preventDefault();
+              } else if (e.key === 'ArrowLeft' && index > 0) {
+                miniInputs[index - 1].focus();
+                e.preventDefault();
+              } else if (e.key === 'ArrowRight' && index < 12) {
+                miniInputs[index + 1].focus();
+                e.preventDefault();
+              }
+            });
+
+            box.addEventListener('focus', function () {
+              box.select();
+              setHighlight('preview-cid-wrapper', true);
+            });
+
+            box.addEventListener('blur', function () {
+              setHighlight('preview-cid-wrapper', false);
+            });
+          })(i);
+
+          miniInputs.push(box);
+          miniCidGrid.appendChild(box);
+        }
+      }
+
+      // Synchronize CID across raw input, 13 mini boxes, and 13 A4 document boxes
+      function syncCidViews(fromRawInput) {
+        if (fromRawInput) {
+          const extracted = extract13Digits(inputCidRaw.value);
+          cidDigits = [];
+          for (let i = 0; i < 13; i++) {
+            const digit = extracted[i] || '';
+            cidDigits.push(numeralMode === 'thai' ? toThaiNumerals(digit) : toArabicNumerals(digit));
+          }
+        } else {
+          // Rebuild raw input string from cidDigits
+          const compact = cidDigits.filter(function (c) { return c !== ''; });
+          if (compact.length === cidDigits.join('').length) {
+            inputCidRaw.value = formatCidWithHyphens(compact);
+          } else {
+            inputCidRaw.value = cidDigits.map(function (c) { return c || ' '; }).join('').trim();
+          }
+        }
+
+        let filledCount = 0;
+        for (let i = 0; i < 13; i++) {
+          const char = cidDigits[i] || '';
+          if (char !== '') filledCount++;
+          if (miniInputs[i] && miniInputs[i].value !== char) {
+            miniInputs[i].value = char;
+          }
+          const docBox = document.getElementById('doc-cid-' + i);
+          if (docBox) {
+            docBox.textContent = char;
+          }
+        }
+
+        // Update badge
+        if (filledCount === 13) {
+          cidCountBadge.textContent = 'ครบ 13 หลัก';
+          cidCountBadge.className = 'absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700';
+        } else if (filledCount === 0) {
+          cidCountBadge.textContent = 'เว้นว่าง';
+          cidCountBadge.className = 'absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600';
+        } else {
+          cidCountBadge.textContent = filledCount + '/13 หลัก';
+          cidCountBadge.className = 'absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800';
+        }
+      }
+
+      // Synchronize (..............) width so '(' stays locked at 'อ' of 'ลงชื่อ'
+      // and ')' aligns with the end of 'ลงชื่อ........' (268px standard), expanding to the right only if needed
+      const signParenMeasure = document.getElementById('sign-paren-measure');
+      function adjustSignatureWidth(customPx) {
+        const standardWidth = 268;
+        let widthPx = standardWidth;
+        if (customPx !== undefined && customPx !== null) {
+          widthPx = Math.max(240, Math.min(460, parseInt(customPx, 10)));
+          isManualSignWidth = true;
+          if (parenWidthBadge) {
+            parenWidthBadge.textContent = 'ปรับขนาดเอง (' + widthPx + 'px)';
+            parenWidthBadge.className = 'text-[11px] font-semibold text-amber-700 bg-amber-100/80 px-2 py-0.5 rounded-full';
+          }
+        } else {
+          // Automatic measurement based on actual rendered width of Thai text (ignoring zero-width combining marks)
+          isManualSignWidth = false;
+          const text = (inputSignParen.value || inputFullname.value || '').trim();
+          let measuredTextWidth = 0;
+          if (text) {
+            if (signParenMeasure) {
+              signParenMeasure.style.fontSize = selectFontSize ? selectFontSize.value : '15.5px';
+              signParenMeasure.textContent = text;
+              measuredTextWidth = signParenMeasure.offsetWidth || 0;
+            }
+            if (!measuredTextWidth) {
+              // Fallback: strip zero-width Thai combining vowels/tone marks before estimating width
+              const baseChars = text.replace(/[ัิ-ฺ็-๎]/g, '');
+              measuredTextWidth = Math.round(baseChars.length * 8.8);
+            }
+          }
+
+          // Width needed: width of 'ลงชื่อ' (~33px) + '(' & ')' (~14px) + inner padding (~16px) + text width
+          const neededWidth = text ? Math.round(measuredTextWidth + 65) : standardWidth;
+          widthPx = Math.max(standardWidth, Math.min(460, neededWidth));
+
+          if (parenWidthBadge) {
+            if (widthPx > standardWidth) {
+              parenWidthBadge.textContent = 'ขยายอัตโนมัติ (' + widthPx + 'px)';
+              parenWidthBadge.className = 'text-[11px] font-semibold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-full';
+            } else {
+              parenWidthBadge.textContent = 'ขนาดมาตรฐาน (' + standardWidth + 'px)';
+              parenWidthBadge.className = 'text-[11px] font-semibold text-blue-700 bg-blue-100/70 px-2 py-0.5 rounded-full';
+            }
+          }
+        }
+
+        // Apply width to BOTH Row 1 and Row 2 so dots on 'ลงชื่อ....' and ')' expand together
+        if (signatureSignRow) {
+          signatureSignRow.style.width = widthPx + 'px';
+          signatureSignRow.style.minWidth = widthPx + 'px';
+        }
+        if (signatureParenRow) {
+          signatureParenRow.style.width = widthPx + 'px';
+          signatureParenRow.style.minWidth = widthPx + 'px';
+        }
+
+        // Keep left anchor steady at 285px unless an ultra-wide manual width (>355px) needs slight left shift to stay on A4
+        if (signatureOuterBlock) {
+          if (widthPx > 355) {
+            const safeLeft = Math.max(185, 640 - widthPx);
+            signatureOuterBlock.style.paddingLeft = safeLeft + 'px';
+          } else {
+            signatureOuterBlock.style.paddingLeft = '285px';
+          }
+        }
+
+        // Update slider and display value
+        if (sliderSignWidth) {
+          sliderSignWidth.value = widthPx;
+        }
+        if (valSignWidth) {
+          valSignWidth.textContent = widthPx + 'px';
+        }
+      }
+
+      // Sync all text fields to the A4 preview
+      function updatePreviewText() {
+        previewDateVal.textContent = inputDate.value;
+        previewFullnameVal.textContent = inputFullname.value;
+        previewPositionVal.textContent = inputPosition.value;
+        previewDivisionVal.textContent = inputDivision.value;
+        previewSignLineVal.textContent = activeSignatureDataUrl ? '' : inputSignLine.value;
+        previewSignParenVal.textContent = inputSignParen.value;
+
+        // Auto adjust signature width if not manually locked
+        if (!isManualSignWidth) {
+          adjustSignatureWidth();
+        }
+      }
+
+      // Apply font size & ink color to all filled values and 13-digit boxes
+      function updateTypographySettings() {
+        const fontSize = selectFontSize.value;
+        const inkColor = selectInkColor.value;
+
+        const filledElements = document.querySelectorAll('.filled-value');
+        filledElements.forEach(function (el) {
+          el.style.fontSize = fontSize;
+          el.style.color = inkColor;
+        });
+
+        const cidBoxes = document.querySelectorAll('.cid-box');
+        cidBoxes.forEach(function (box) {
+          box.style.fontSize = fontSize;
+          box.style.color = inkColor;
+        });
+
+        if (!isManualSignWidth) {
+          adjustSignatureWidth();
+        }
+      }
+
+      // Highlight corresponding preview region when an input is focused
+      function setHighlight(previewWrapperId, isActive) {
+        const target = document.getElementById(previewWrapperId);
+        if (!target) return;
+        if (isActive) {
+          target.classList.add('field-active-highlight');
+        } else {
+          target.classList.remove('field-active-highlight');
+        }
+      }
+
+      // Synchronize "ข้าพเจ้า" to "(..............)"
+      function syncFullnameToSignParen() {
+        inputSignParen.value = inputFullname.value;
+        updatePreviewText();
+      }
+
+      // Attach listeners to text inputs
+      const textInputs = [
+        inputDate,
+        inputFullname,
+        inputPosition,
+        inputDivision,
+        inputSignLine,
+        inputSignParen
+      ];
+
+      textInputs.forEach(function (inp) {
+        inp.addEventListener('input', function () {
+          // Auto-convert any typed numerals according to active numeralMode
+          handleAutoNumeralInput(inp);
+
+          if (inp === inputFullname) {
+            syncFullnameToSignParen();
+          } else {
+            updatePreviewText();
+          }
+        });
+
+        const targetId = inp.getAttribute('data-target-preview');
+        if (targetId) {
+          inp.addEventListener('focus', function () {
+            setHighlight(targetId, true);
+          });
+          inp.addEventListener('blur', function () {
+            setHighlight(targetId, false);
+          });
+        }
+      });
+
+      // Ensure every user action on inputFullname immediately mirrors to inputSignParen and preview
+      inputFullname.addEventListener('change', function () { syncFullnameToSignParen(); updateRankUI(); });
+      inputFullname.addEventListener('keyup', function () { syncFullnameToSignParen(); updateRankUI(); });
+      inputFullname.addEventListener('input', updateRankUI);
+      inputFullname.addEventListener('paste', function () {
+        setTimeout(function () {
+          handleAutoNumeralInput(inputFullname);
+          syncFullnameToSignParen();
+        }, 10);
+      });
+
+      inputCidRaw.addEventListener('input', function () {
+        handleAutoNumeralInput(inputCidRaw);
+        const cursorEnd = inputCidRaw.selectionStart === inputCidRaw.value.length;
+        syncCidViews(true);
+        if (cursorEnd) {
+          const digitsOnly = extract13Digits(inputCidRaw.value);
+          inputCidRaw.value = formatCidWithHyphens(digitsOnly);
+        }
+      });
+
+      inputCidRaw.addEventListener('focus', function () {
+        setHighlight('preview-cid-wrapper', true);
+      });
+      inputCidRaw.addEventListener('blur', function () {
+        setHighlight('preview-cid-wrapper', false);
+      });
+
+      
+      // ==========================================
+      // POLICE RANK SELECTION & 'หญิง' TOGGLE LOGIC
+      // ==========================================
+      let isRankFemale = false;
+      const rankChips = document.querySelectorAll('.btn-rank-chip');
+      const btnToggleFemale = document.getElementById('btn-toggle-female');
+      const femaleIndicator = document.getElementById('female-indicator');
+      const femaleLabel = document.getElementById('female-label');
+      const btnClearRank = document.getElementById('btn-clear-rank');
+
+      // Rank pattern matching 17 ranks + optional 'หญิง'
+      const rankPattern = /^(ว่าที่\s+พ\.ต\.อ\.|พ\.ต\.อ\.|ว่าที่\s+พ\.ต\.ท\.|พ\.ต\.ท\.|ว่าที่\s+พ\.ต\.ต\.|พ\.ต\.ต\.|ว่าที่\s+ร\.ต\.อ\.|ร\.ต\.อ\.|ว่าที่\s+ร\.ต\.ท\.|ร\.ต\.ท\.|ว่าที่\s+ร\.ต\.ต\.|ร\.ต\.ต\.|จ\.ส\.ต\.|ด\.ต\.|ส\.ต\.อ\.|ส\.ต\.ท\.|ส\.ต\.ต\.)(?:\s*หญิง)?(?:\s+|$)(.*)$/u;
+
+      function parseRankFromName(val) {
+        if (!val) return { rank: '', isFemale: false, nameOnly: '' };
+        const match = val.trim().match(rankPattern);
+        if (match) {
+          const matchedRank = match[1].replace(/\s+/g, ' '); // normalize inner whitespace
+          const hasFemale = /หญิง/.test(val.slice(0, match[0].length));
+          const nameOnly = match[2] || '';
+          return {
+            rank: matchedRank,
+            isFemale: hasFemale,
+            nameOnly: nameOnly
+          };
+        }
+        return { rank: '', isFemale: false, nameOnly: val.trim() };
+      }
+
+      function updateRankUI() {
+        const parsed = parseRankFromName(inputFullname.value);
+        if (parsed.rank) {
+          isRankFemale = parsed.isFemale;
+        }
+
+        // Update rank chips highlighting
+        rankChips.forEach(function (btn) {
+          const r = btn.getAttribute('data-rank');
+          if (r === parsed.rank) {
+            btn.className = 'btn-rank-chip px-2 py-0.5 rounded-lg text-xs font-semibold bg-blue-600 text-white border border-blue-600 shadow-xs transition-all cursor-pointer select-none';
+          } else {
+            btn.className = 'btn-rank-chip px-2 py-0.5 rounded-lg text-xs font-medium bg-white hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300 border border-slate-200 text-slate-700 transition-all cursor-pointer select-none shadow-2xs';
+          }
+        });
+
+        // Update female toggle UI
+        if (isRankFemale) {
+          if (btnToggleFemale) {
+            btnToggleFemale.className = 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all cursor-pointer select-none bg-rose-50 text-rose-700 border-rose-300 shadow-xs';
+          }
+          if (femaleIndicator) {
+            femaleIndicator.className = 'w-2 h-2 rounded-full bg-rose-500';
+          }
+          if (femaleLabel) {
+            femaleLabel.textContent = 'หญิง (เช่น ร.ต.อ.หญิง)';
+          }
+        } else {
+          if (btnToggleFemale) {
+            btnToggleFemale.className = 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border transition-all cursor-pointer select-none bg-white text-slate-700 border-slate-300 hover:bg-slate-100 shadow-2xs';
+          }
+          if (femaleIndicator) {
+            femaleIndicator.className = 'w-2 h-2 rounded-full bg-slate-300';
+          }
+          if (femaleLabel) {
+            femaleLabel.textContent = '+ หญิง (เช่น ร.ต.อ.หญิง)';
+          }
+        }
+      }
+
+      // Handle clicking a rank chip
+      rankChips.forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          const rank = btn.getAttribute('data-rank');
+          const parsed = parseRankFromName(inputFullname.value);
+          const femaleSuffix = isRankFemale ? 'หญิง ' : ' ';
+          const newPrefix = rank + femaleSuffix;
+
+          if (parsed.nameOnly) {
+            inputFullname.value = newPrefix + parsed.nameOnly;
+          } else {
+            inputFullname.value = newPrefix;
+          }
+
+          syncFullnameToSignParen();
+          updateRankUI();
+          inputFullname.focus();
+          showToast('เลือกยศ: ' + (isRankFemale ? rank + 'หญิง' : rank));
+        });
+      });
+
+      // Handle clicking female toggle button
+      if (btnToggleFemale) {
+        btnToggleFemale.addEventListener('click', function () {
+          isRankFemale = !isRankFemale;
+          const parsed = parseRankFromName(inputFullname.value);
+
+          if (parsed.rank) {
+            const femaleSuffix = isRankFemale ? 'หญิง ' : ' ';
+            const newPrefix = parsed.rank + femaleSuffix;
+            if (parsed.nameOnly) {
+              inputFullname.value = newPrefix + parsed.nameOnly;
+            } else {
+              inputFullname.value = newPrefix;
+            }
+            syncFullnameToSignParen();
+          }
+
+          updateRankUI();
+          inputFullname.focus();
+          showToast(isRankFemale ? 'เปิดใช้งาน: เติม "หญิง" ท้ายยศ' : 'ปิดการเติม "หญิง" ท้ายยศ');
+        });
+      }
+
+      // Clear Rank only button
+      if (btnClearRank) {
+        btnClearRank.addEventListener('click', function () {
+          const parsed = parseRankFromName(inputFullname.value);
+          if (parsed.nameOnly) {
+            inputFullname.value = parsed.nameOnly;
+          } else {
+            inputFullname.value = '';
+          }
+          isRankFemale = false;
+          syncFullnameToSignParen();
+          updateRankUI();
+          inputFullname.focus();
+          showToast('ล้างยศออกจากช่องชื่อแล้ว');
+        });
+      }
+
+      // Position Quick-Select Chips (ผบ.หมู่, รอง สว., สว., รอง ผกก., ผกก.)
+      const posChips = document.querySelectorAll('.btn-pos-chip');
+      function updatePosChipsActive() {
+        const currentVal = (inputPosition.value || '').trim();
+        posChips.forEach(function (btn) {
+          const pos = btn.getAttribute('data-pos');
+          if (pos === currentVal) {
+            btn.className = 'btn-pos-chip px-2.5 py-1 rounded-lg text-xs font-semibold bg-blue-600 text-white border border-blue-600 shadow-xs transition-all cursor-pointer select-none';
+          } else {
+            btn.className = 'btn-pos-chip px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-100 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300 border border-slate-200 text-slate-700 transition-all cursor-pointer select-none';
+          }
+        });
+      }
+
+      posChips.forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          const pos = btn.getAttribute('data-pos');
+          inputPosition.value = pos;
+          handleAutoNumeralInput(inputPosition);
+          updatePreviewText();
+          updatePosChipsActive();
+          inputPosition.focus();
+          showToast('เลือกตำแหน่ง: ' + pos);
+        });
+      });
+
+      inputPosition.addEventListener('input', updatePosChipsActive);
+
+      const btnClearPosition = document.getElementById('btn-clear-position');
+      if (btnClearPosition) {
+        btnClearPosition.addEventListener('click', function () {
+          inputPosition.value = '';
+          updatePreviewText();
+          updatePosChipsActive();
+          inputPosition.focus();
+        });
+      }
+
+      chkSyncParen.addEventListener('change', function () {
+        if (chkSyncParen.checked) {
+          syncFullnameToSignParen();
+        }
+      });
+
+      // Slider for manual / automatic expansion of (..............)
+      if (sliderSignWidth) {
+        sliderSignWidth.addEventListener('input', function () {
+          adjustSignatureWidth(sliderSignWidth.value);
+        });
+      }
+
+      if (btnResetSignWidth) {
+        btnResetSignWidth.addEventListener('click', function () {
+          isManualSignWidth = false;
+          adjustSignatureWidth();
+          showToast('คืนค่าความกว้าง (..............) เป็นแบบอัตโนมัติแล้ว');
+        });
+      }
+
+      selectFontSize.addEventListener('change', updateTypographySettings);
+      selectInkColor.addEventListener('change', updateTypographySettings);
+
+      // Clicking any field on the A4 paper focuses its input in the left panel
+      document.querySelectorAll('[data-focus-input]').forEach(function (el) {
+        el.addEventListener('click', function () {
+          const inputId = el.getAttribute('data-focus-input');
+          const targetInput = document.getElementById(inputId);
+          if (targetInput) {
+            targetInput.focus();
+          }
+        });
+      });
+
+      // Numeral Conversion Buttons (Thai <-> Arabic)
+      btnToThaiNum.addEventListener('click', function () {
+        setNumeralMode('thai', true);
+      });
+
+      btnToArabicNum.addEventListener('click', function () {
+        setNumeralMode('arabic', true);
+      });
+
+      // Function to get current date formatted in Thai
+      function getTodayThaiDate() {
+        const monthsShort = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+        const now = new Date();
+        const rawDay = now.getDate();
+        const rawYear = String(now.getFullYear() + 543).slice(-2);
+        const day = numeralMode === 'thai' ? toThaiNumerals(rawDay) : toArabicNumerals(rawDay);
+        const month = monthsShort[now.getMonth()];
+        const yearBE2 = numeralMode === 'thai' ? toThaiNumerals(rawYear) : toArabicNumerals(rawYear);
+        return day + ' ' + month + ' ' + yearBE2;
+      }
+
+      // Quick helper buttons
+      const btnDateSample = document.getElementById('btn-date-sample');
+      if (btnDateSample) {
+        btnDateSample.addEventListener('click', function () {
+          inputDate.value = getTodayThaiDate();
+          updatePreviewText();
+        });
+      }
+
+      document.getElementById('btn-date-today').addEventListener('click', function () {
+        inputDate.value = getTodayThaiDate();
+        updatePreviewText();
+        showToast('ตั้งค่าเป็นวันที่ปัจจุบัน (' + inputDate.value + ') เรียบร้อยแล้ว');
+      });
+
+      const btnNameSample = document.getElementById('btn-name-sample');
+      if (btnNameSample) {
+        btnNameSample.addEventListener('click', function () {
+          updatePreviewText();
+        });
+      }
+
+      document.getElementById('btn-cid-clear').addEventListener('click', function () {
+        cidDigits = ['', '', '', '', '', '', '', '', '', '', '', '', ''];
+        inputCidRaw.value = '';
+        syncCidViews(false);
+      });
+
+      document.getElementById('btn-copy-to-sign').addEventListener('click', function () {
+        clearSignatureImage();
+        inputSignLine.value = inputFullname.value;
+        updatePreviewText();
+      });
+
+      document.getElementById('btn-clear-sign').addEventListener('click', function () {
+        inputSignLine.value = '';
+        clearSignatureImage();
+        updatePreviewText();
+        showToast('เว้นว่างช่องลงชื่อไว้สำหรับเซ็นด้วยปากกาแล้ว');
+      });
+
+      document.getElementById('btn-copy-to-paren').addEventListener('click', function () {
+        syncFullnameToSignParen();
+        chkSyncParen.checked = true;
+      });
+
+      document.getElementById('btn-clear-paren').addEventListener('click', function () {
+        chkSyncParen.checked = false;
+        inputSignParen.value = '';
+        updatePreviewText();
+      });
+
+      // Fill Sample Data Button (Uses sample from user picture: ส.ต.ท.หญิง ปัญนลิน พิชยชัยนันทน์)
+      document.getElementById('btn-fill-sample').addEventListener('click', function () {
+        inputDate.value = getTodayThaiDate();
+        inputFullname.value = 'ส.ต.ท.หญิง ปัญนลิน พิชยชัยนันทน์';
+        cidDigits = ['', '', '', '', '', '', '', '', '', '', '', '', ''];
+        inputCidRaw.value = '';
+        inputPosition.value = '';
+        inputDivision.value = 'ฝ่ายดนตรี กองสวัสดิการ สำนักงานกำลังพล สำนักงานตำรวจแห่งชาติ';
+        inputSignLine.value = '';
+        inputSignParen.value = 'ส.ต.ท.หญิง ปัญนลิน พิชยชัยนันทน์';
+        clearSignatureImage();
+        chkSyncParen.checked = true;
+        isManualSignWidth = false;
+        syncCidViews(false);
+        updatePreviewText();
+        updatePosChipsActive();
+        updateRankUI();
+        showToast('กรอกตัวอย่างชื่อยาว (ส.ต.ท.หญิง ปัญนลิน พิชยชัยนันทน์) และขยาย (..............) ให้พอดีแล้ว');
+      });
+
+      // Clear All Data Button
+      document.getElementById('btn-clear-all').addEventListener('click', function () {
+        inputDate.value = '';
+        inputFullname.value = '';
+        cidDigits = ['', '', '', '', '', '', '', '', '', '', '', '', ''];
+        inputCidRaw.value = '';
+        inputPosition.value = '';
+        inputDivision.value = '';
+        inputSignLine.value = '';
+        inputSignParen.value = '';
+        clearSignatureImage();
+        isManualSignWidth = false;
+        syncCidViews(false);
+        updatePreviewText();
+        isRankFemale = false;
+        updateRankUI();
+        updatePosChipsActive();
+        showToast('ล้างข้อมูลในช่องกรอกทั้งหมดแล้ว');
+      });
+
+
+      // Responsive Zoom Controls for A4 Preview
+      const btnZoomPage = document.getElementById('btn-zoom-page');
+      const btnZoomWidth = document.getElementById('btn-zoom-width');
+
+      function updateZoomButtonStyles() {
+        if (zoomMode === 'page') {
+          btnZoomPage.className = 'px-2.5 py-1 rounded bg-blue-600 hover:bg-blue-500 text-xs font-medium transition-colors';
+          btnZoomWidth.className = 'px-2.5 py-1 rounded bg-slate-700 hover:bg-slate-600 text-xs font-medium transition-colors';
+        } else if (zoomMode === 'width') {
+          btnZoomWidth.className = 'px-2.5 py-1 rounded bg-blue-600 hover:bg-blue-500 text-xs font-medium transition-colors';
+          btnZoomPage.className = 'px-2.5 py-1 rounded bg-slate-700 hover:bg-slate-600 text-xs font-medium transition-colors';
+        } else {
+          btnZoomPage.className = 'px-2.5 py-1 rounded bg-slate-700 hover:bg-slate-600 text-xs font-medium transition-colors';
+          btnZoomWidth.className = 'px-2.5 py-1 rounded bg-slate-700 hover:bg-slate-600 text-xs font-medium transition-colors';
+        }
+      }
+
+      function applyZoom(scale) {
+        currentZoom = Math.max(0.4, Math.min(1.35, scale));
+        a4ScaleWrapper.style.transform = 'scale(' + currentZoom + ')';
+        a4SizeBox.style.width = Math.round(794 * currentZoom) + 'px';
+        a4SizeBox.style.height = Math.round(1123 * currentZoom) + 'px';
+        zoomLabel.textContent = Math.round(currentZoom * 100) + '%';
+        updateZoomButtonStyles();
+      }
+
+      function autoFitPreview(mode) {
+        if (mode) zoomMode = mode;
+        const padX = 32;
+        const availW = Math.max(300, previewScrollArea.clientWidth - padX);
+        const scaleW = Math.min(1, availW / 794);
+
+        if (zoomMode === 'page') {
+          const rect = previewScrollArea.getBoundingClientRect();
+          const availH = Math.max(480, window.innerHeight - rect.top - 36);
+          const scaleH = availH / 1123;
+          applyZoom(Math.min(scaleW, scaleH));
+        } else {
+          applyZoom(scaleW);
+        }
+      }
+
+      btnZoomPage.addEventListener('click', function () {
+        autoFitPreview('page');
+      });
+      document.getElementById('btn-zoom-fit').addEventListener('click', function () {
+        autoFitPreview('page');
+      });
+      btnZoomWidth.addEventListener('click', function () {
+        autoFitPreview('width');
+      });
+      document.getElementById('btn-zoom-out').addEventListener('click', function () {
+        zoomMode = 'manual';
+        applyZoom(currentZoom - 0.08);
+      });
+      document.getElementById('btn-zoom-in').addEventListener('click', function () {
+        zoomMode = 'manual';
+        applyZoom(currentZoom + 0.08);
+      });
+      window.addEventListener('resize', function () {
+        if (zoomMode !== 'manual') {
+          autoFitPreview(zoomMode);
+        }
+      });
+
+      // Print Document Action
+      document.getElementById('btn-print-doc').addEventListener('click', function () {
+        window.print();
+      });
+
+      // Download PDF Action (using html2pdf.js on isolated clean A4 clone to avoid any layout/scroll cropping)
+      const btnDownloadPdf = document.getElementById('btn-download-pdf');
+      btnDownloadPdf.addEventListener('click', async function () {
+        if (typeof html2pdf === 'undefined') {
+          window.print();
+          return;
+        }
+
+        const originalLabel = btnDownloadPdf.innerHTML;
+        btnDownloadPdf.disabled = true;
+        btnDownloadPdf.innerHTML = '<span>กำลังสร้างไฟล์ PDF...</span>';
+
+        let clone = null;
+        const savedScrollX = window.scrollX || window.pageXOffset || 0;
+        const savedScrollY = window.scrollY || window.pageYOffset || 0;
+
+        try {
+          if (document.fonts && document.fonts.ready) {
+            await document.fonts.ready;
+          }
+
+          window.scrollTo(0, 0);
+
+          // Create an un-transformed, isolated clone attached at viewport (0,0) so html2canvas captures full A4 sheet
+          clone = a4Paper.cloneNode(true);
+          clone.id = 'a4-paper-export-clone';
+          clone.classList.add('exporting-pdf');
+          clone.style.position = 'fixed';
+          clone.style.left = '0';
+          clone.style.top = '0';
+          clone.style.width = '794px';
+          clone.style.height = '1123px';
+          clone.style.margin = '0';
+          clone.style.padding = '48px 66px 64px 82px';
+          clone.style.transform = 'none';
+          clone.style.zIndex = '999999';
+          clone.style.backgroundColor = '#ffffff';
+          clone.style.boxShadow = 'none';
+          clone.style.border = 'none';
+          document.body.appendChild(clone);
+
+          const rawName = (inputFullname.value || 'PromptPay').trim().replace(/\s+/g, '_');
+          const fileName = 'แบบยืนยัน_PromptPay_' + (rawName || 'เอกสาร') + '.pdf';
+
+          const opt = {
+            margin: 0,
+            filename: fileName,
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: {
+              scale: 2.5,
+              useCORS: true,
+              scrollX: 0,
+              scrollY: 0,
+              x: 0,
+              y: 0,
+              width: 794,
+              height: 1123,
+              backgroundColor: '#ffffff',
+              logging: false
+            },
+            jsPDF: {
+              unit: 'mm',
+              format: 'a4',
+              orientation: 'portrait'
+            }
+          };
+
+          await html2pdf().set(opt).from(clone).save();
+          showToast('ดาวน์โหลดไฟล์ ' + fileName + ' เรียบร้อยแล้ว');
+        } catch (err) {
+          console.error('PDF export error:', err);
+          showToast('กำลังเปิดหน้าต่างสั่งพิมพ์เพื่อบันทึกเป็น PDF...');
+          window.print();
+        } finally {
+          if (clone && clone.parentNode) {
+            clone.parentNode.removeChild(clone);
+          }
+          window.scrollTo(savedScrollX, savedScrollY);
+          btnDownloadPdf.disabled = false;
+          btnDownloadPdf.innerHTML = originalLabel;
+        }
+      });
+
+      // Initialize on load
+      updateNumeralModeUI();
+      inputDate.value = getTodayThaiDate();
+      buildMiniCidBoxes();
+      syncCidViews(false);
+      updatePreviewText();
+      updateTypographySettings();
+      updatePosChipsActive();
+      updateRankUI();
+      setTimeout(function () {
+        autoFitPreview('page');
+      }, 60);
+    })();
+  </script>
+</body>
+</html>
