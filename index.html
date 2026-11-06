@@ -558,11 +558,13 @@
             <input
               id="input-cid-raw"
               type="text"
+              inputmode="numeric"
+              aria-describedby="cid-entry-help cid-count-badge"
               maxlength="25"
               value=""
               placeholder="กรอกเลขบัตรประชาชน 13 หลัก (ไทย หรือ อารบิก)"
               data-target-preview="preview-cid-wrapper"
-              class="w-full px-3.5 py-2 rounded-xl border border-slate-300 bg-white focus:border-blue-600 focus:ring-2 focus:ring-blue-100 outline-none text-base tracking-wider transition-all"
+              class="w-full pl-3.5 pr-28 py-2 rounded-xl border border-slate-300 bg-white focus:border-blue-600 focus:ring-2 focus:ring-blue-100 outline-none text-base tracking-wider transition-all"
             />
             <span id="cid-count-badge" class="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
               เว้นว่าง
@@ -571,8 +573,8 @@
 
           <!-- 13 Mini Boxes for individual digit verification/editing -->
           <div>
-            <p class="text-[11px] text-slate-500 mb-1.5">
-              สามารถพิมพ์รวดเดียวด้านบน หรือคลิกแก้ไขทีละหลักในช่องด้านล่าง (ครบทั้ง 13 ช่อง รูปแบบ 1-4-5-2-1):
+            <p id="cid-entry-help" class="text-[11px] text-slate-500 mb-1.5">
+              สามารถพิมพ์รวดเดียวด้านบน หรือคลิกแก้ไขทีละหลักในช่องด้านล่าง (ครบทั้ง 13 ช่อง รูปแบบ 1-4-5-2-1) เครื่องหมาย _ หมายถึงหลักที่ยังเว้นว่าง:
             </p>
             <div id="mini-cid-grid" class="flex items-center flex-wrap gap-1 select-none">
               <!-- Populated and bound by JS -->
@@ -1324,17 +1326,17 @@
         return numeralMode === 'thai' ? toThaiNumerals(str) : toArabicNumerals(str);
       }
 
-      // Extract only digits (either Thai or Arabic), max 13 characters
+      // Preserve empty slots when editing a partially completed ID.
       function extract13Digits(str) {
         if (!str) return [];
-        const matches = String(str).match(/[0-9๐-๙]/g);
+        const matches = String(str).match(/[0-9๐-๙_]/g);
         if (!matches) return [];
-        return matches.slice(0, 13);
+        return matches.slice(0, 13).map(function (digit) { return digit === '_' ? '' : digit; });
       }
 
       // Format 13-digit array as X-XXXX-XXXXX-XX-X
       function formatCidWithHyphens(digitsArr) {
-        const s = digitsArr.join('');
+        const s = digitsArr.map(function (digit) { return digit || '_'; }).join('').replace(/_+$/, '');
         let out = '';
         for (let i = 0; i < s.length; i++) {
           if (i === 1 || i === 5 || i === 10 || i === 12) {
@@ -1829,6 +1831,7 @@
           }
           const box = document.createElement('input');
           box.type = 'text';
+          box.inputMode = 'numeric';
           box.maxLength = 1;
           box.value = cidDigits[i] || '';
           box.setAttribute('aria-label', 'เลขประจำตัวประชาชนหลักที่ ' + (i + 1));
@@ -1894,13 +1897,7 @@
             cidDigits.push(numeralMode === 'thai' ? toThaiNumerals(digit) : toArabicNumerals(digit));
           }
         } else {
-          // Rebuild raw input string from cidDigits
-          const compact = cidDigits.filter(function (c) { return c !== ''; });
-          if (compact.length === cidDigits.join('').length) {
-            inputCidRaw.value = formatCidWithHyphens(compact);
-          } else {
-            inputCidRaw.value = cidDigits.map(function (c) { return c || ' '; }).join('').trim();
-          }
+          inputCidRaw.value = formatCidWithHyphens(cidDigits);
         }
 
         let filledCount = 0;
@@ -2427,8 +2424,17 @@
         updatePreviewText();
       });
 
+      function confirmFormReplacement(message) {
+        const hasData = [inputDate, inputFullname, inputCidRaw, inputPosition,
+          inputDivision, inputSignLine, inputSignParen].some(function (input) {
+          return input.value.trim() !== '';
+        }) || activeSignatureDataUrl;
+        return !hasData || window.confirm(message);
+      }
+
       // Fill Sample Data Button (Uses sample from user picture: ส.ต.ท.หญิง ปัญนลิน พิชยชัยนันทน์)
       document.getElementById('btn-fill-sample').addEventListener('click', function () {
+        if (!confirmFormReplacement('แทนที่ข้อมูลและลายเซ็นปัจจุบันด้วยข้อมูลตัวอย่างหรือไม่?')) return;
         inputDate.value = getTodayThaiDate();
         inputFullname.value = 'ส.ต.ท.หญิง ปัญนลิน พิชยชัยนันทน์';
         cidDigits = ['', '', '', '', '', '', '', '', '', '', '', '', ''];
@@ -2449,6 +2455,7 @@
 
       // Clear All Data Button
       document.getElementById('btn-clear-all').addEventListener('click', function () {
+        if (!confirmFormReplacement('ล้างข้อมูลและลายเซ็นทั้งหมดหรือไม่? การล้างข้อมูลไม่สามารถย้อนกลับได้')) return;
         inputDate.value = '';
         inputFullname.value = '';
         cidDigits = ['', '', '', '', '', '', '', '', '', '', '', '', ''];
