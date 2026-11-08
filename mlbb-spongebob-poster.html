@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>โปสเตอร์โปรโมชัน MLBB x SpongeBob SquarePants</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <link preconnect href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    body { font-family: 'Kanit', sans-serif; background-color: #0b1220; }
+
+    /* Editable fields: change these values (or edit via the controls panel) to regenerate the poster */
+    #poster {
+      width: 900px;
+      position: relative;
+      box-shadow: 0 20px 40px -10px rgba(0,0,0,0.5);
+    }
+    #poster img { display: block; width: 100%; height: auto; }
+
+    .promo-banner {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: linear-gradient(180deg, rgba(10,22,53,0) 0%, rgba(8,18,46,0.92) 28%, #0a1535 100%);
+      padding: 28px 32px 22px;
+      text-align: center;
+      color: #fff;
+    }
+
+    .promo-date {
+      font-weight: 700;
+      font-size: 26px;
+      letter-spacing: 0.5px;
+      color: #ffe066;
+      text-shadow: 0 2px 6px rgba(0,0,0,0.6);
+      margin-bottom: 10px;
+    }
+
+    .promo-prices {
+      display: flex;
+      justify-content: center;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+
+    .price-chip {
+      background: linear-gradient(135deg, #ff7a18, #ff3d6e);
+      border-radius: 999px;
+      padding: 8px 18px;
+      font-weight: 600;
+      font-size: 17px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.35);
+      white-space: nowrap;
+    }
+
+    .price-chip b { font-weight: 800; }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col items-center gap-6 py-10 px-4">
+
+  <h1 class="text-white text-xl font-semibold">Poster Generator: MLBB x SpongeBob SquarePants</h1>
+
+  <!-- Controls: edit then click "อัปเดตโปสเตอร์" -->
+  <div class="bg-white rounded-xl shadow-lg p-5 w-full max-w-[900px] grid grid-cols-1 md:grid-cols-4 gap-4">
+    <label class="flex flex-col gap-1 text-sm text-slate-700 md:col-span-2">
+      วันที่สกินเข้าเกม
+      <input id="inputDate" type="text" value="สกินเข้าเกมวันที่ 18 พฤศจิกายน 2569"
+             class="border border-slate-300 rounded-lg px-3 py-2 text-sm" />
+    </label>
+    <label class="flex flex-col gap-1 text-sm text-slate-700">
+      ราคา 1 ตัว
+      <input id="price1" type="text" value="729.-" class="border border-slate-300 rounded-lg px-3 py-2 text-sm" />
+    </label>
+    <label class="flex flex-col gap-1 text-sm text-slate-700">
+      ราคา 2 ตัว
+      <input id="price2" type="text" value="1,414.-" class="border border-slate-300 rounded-lg px-3 py-2 text-sm" />
+    </label>
+    <label class="flex flex-col gap-1 text-sm text-slate-700">
+      ราคา 3 ตัว
+      <input id="price3" type="text" value="2,050.-" class="border border-slate-300 rounded-lg px-3 py-2 text-sm" />
+    </label>
+    <div class="md:col-span-4 flex gap-3">
+      <button id="updateBtn" class="bg-slate-800 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-slate-700">
+        อัปเดตโปสเตอร์
+      </button>
+      <button id="downloadBtn" class="bg-emerald-600 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-emerald-500">
+        ดาวน์โหลดเป็น PNG
+      </button>
+    </div>
+  </div>
+
+  <div id="poster">
+    <img src="assets/mlbb-spongebob-base.jpg" alt="MLBB x SpongeBob SquarePants" />
+    <div class="promo-banner">
+      <div class="promo-date" id="outDate">สกินเข้าเกมวันที่ 18 พฤศจิกายน 2569</div>
+      <div class="promo-prices">
+        <div class="price-chip">1 ตัว <b id="outPrice1">729.-</b></div>
+        <div class="price-chip">2 ตัว <b id="outPrice2">1,414.-</b></div>
+        <div class="price-chip">3 ตัว <b id="outPrice3">2,050.-</b></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function render() {
+      document.getElementById('outDate').textContent = document.getElementById('inputDate').value;
+      document.getElementById('outPrice1').textContent = document.getElementById('price1').value;
+      document.getElementById('outPrice2').textContent = document.getElementById('price2').value;
+      document.getElementById('outPrice3').textContent = document.getElementById('price3').value;
+    }
+    document.getElementById('updateBtn').addEventListener('click', render);
+    render();
+
+    document.getElementById('downloadBtn').addEventListener('click', () => {
+      html2canvas(document.getElementById('poster'), { useCORS: true, scale: 2 }).then(canvas => {
+        const link = document.createElement('a');
+        link.download = 'mlbb-spongebob-poster.png';
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+      });
+    });
+  </script>
+</body>
+</html>
