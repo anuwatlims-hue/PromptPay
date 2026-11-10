@@ -1,0 +1,9 @@
+{
+  "name": "subs-vault-extension",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "test": "node --test tests/*.test.cjs",
+    "check": "node --check popup.js && node --check lib/parser.js && npm test"
+  }
+}
