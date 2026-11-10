@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="th">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light" />
+    <title>Subs Vault</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="app-header">
+        <div class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M7.5 10V7.5a4.5 4.5 0 0 1 9 0V10M6 10h12v10H6V10Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="14.5" r="1.4" fill="currentColor"/><path d="M12 15.8v1.7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </div>
+        <div class="brand-copy">
+          <span class="eyebrow">PERSONAL LIBRARY</span>
+          <h1>Subs Vault<span>.</span></h1>
+        </div>
+        <button class="icon-button header-action" id="settings-button" type="button" aria-label="ตั้งค่า" title="ตั้งค่า">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4Z" stroke="currentColor" stroke-width="1.7"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.86 2.86-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1 1.55V21h-4v-.05a1.7 1.7 0 0 0-1-1.55 1.7 1.7 0 0 0-1.88.34l-.06.06-2.86-2.86.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.55-1H3v-4h.05a1.7 1.7 0 0 0 1.55-1 1.7 1.7 0 0 0-.34-1.88l-.06-.06L7.06 4.2l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.55V3h4v.05a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.88-.34l.06-.06 2.86 2.86-.06.06A1.7 1.7 0 0 0 19.4 9c.25.6.85 1 1.5 1H21v4h-.1c-.65 0-1.25.4-1.5 1Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
+        </button>
+      </header>
+
+      <main>
+        <section id="empty-view" class="empty-view" hidden>
+          <div class="empty-illustration" aria-hidden="true">
+            <div class="orbit orbit-one"></div><div class="orbit orbit-two"></div>
+            <div class="vault-tile">
+              <svg viewBox="0 0 32 32" fill="none"><rect x="6" y="12" width="20" height="16" rx="5" stroke="currentColor" stroke-width="2"/><path d="M10 12V9a6 6 0 0 1 12 0v3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="16" cy="19" r="2" fill="currentColor"/><path d="M16 21v3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            </div>
+          </div>
+          <span class="status-pill"><span></span> PRIVATE BY DESIGN</span>
+          <h2>คีย์ของคุณ<br />อยู่กับคุณเสมอ</h2>
+          <p>นำเข้ารายการ Subscription เพื่อจัดเก็บอย่างเป็นระเบียบ และคัดลอกใช้งานได้ในคลิกเดียว</p>
+          <button class="primary-button" id="start-import" type="button">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 15v4h14v-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            นำเข้าคีย์ของคุณ
+          </button>
+          <span class="empty-note">ไม่มีบัญชี ไม่มีคลาวด์ ไม่มีการติดตาม</span>
+        </section>
+
+        <section id="library-view" class="library-view" hidden>
+          <div class="library-heading">
+            <div>
+              <div class="local-label"><span></span> เก็บในเครื่องเท่านั้น</div>
+              <h2>Subscription keys</h2>
+            </div>
+            <span class="count-badge" id="key-count">0 คีย์</span>
+          </div>
+
+          <button class="product-prefix" id="copy-prefix" type="button" title="คัดลอก Product Prefix">
+            <span class="product-icon" aria-hidden="true">S</span>
+            <span class="prefix-content"><small>PRODUCT PREFIX</small><strong id="prefix-text"></strong></span>
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="2" stroke="currentColor" stroke-width="1.7"/><path d="M16 8V5H5v11h3" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
+          </button>
+
+          <label class="search-box">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.3" stroke="currentColor" stroke-width="1.8"/><path d="m16 16 4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+            <input id="search-input" type="search" placeholder="ค้นหารายการ..." autocomplete="off" />
+            <kbd>⌘ K</kbd>
+          </label>
+
+          <div id="key-list" class="key-list"></div>
+          <div id="no-results" class="no-results" hidden>ไม่พบรายการที่ค้นหา</div>
+          <button id="add-more" class="text-button" type="button">+ นำเข้าชุดข้อมูลใหม่</button>
+        </section>
+      </main>
+
+      <footer><span class="footer-dot"></span> OFFLINE &amp; SECURE <span>•</span> MANIFEST V3</footer>
+    </div>
+
+    <dialog id="import-dialog" class="modal">
+      <form method="dialog" class="modal-card" id="import-form">
+        <div class="modal-heading">
+          <div><span class="eyebrow">LOCAL IMPORT</span><h2>นำเข้าชุดคีย์</h2></div>
+          <button class="icon-button close-dialog" type="button" aria-label="ปิด">×</button>
+        </div>
+        <p>วางข้อความที่มี Product Prefix และรายการคีย์ ระบบจะแยกแต่ละรายการให้อัตโนมัติ</p>
+        <label class="textarea-label" for="import-text">ข้อความชุดคีย์</label>
+        <textarea id="import-text" rows="8" spellcheck="false" placeholder="(Product Prefix): subs:your.product.id&#10;12 เดือน: AVbCH/your-key..."></textarea>
+        <p id="import-warning" class="import-warning" hidden>การนำเข้าจะแทนที่ชุดข้อมูลปัจจุบันทั้งหมด</p>
+        <p id="import-error" class="form-error" role="alert" hidden></p>
+        <div class="modal-actions">
+          <button class="secondary-button close-dialog" type="button">ยกเลิก</button>
+          <button class="primary-button" id="save-import" type="submit">บันทึกลงในเครื่อง</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="settings-dialog" class="modal">
+      <div class="modal-card settings-card">
+        <div class="modal-heading">
+          <div><span class="eyebrow">PREFERENCES</span><h2>จัดการข้อมูล</h2></div>
+          <button class="icon-button close-dialog" type="button" aria-label="ปิด">×</button>
+        </div>
+        <button class="setting-row" id="settings-import" type="button"><span class="setting-icon">↓</span><span><strong>นำเข้าชุดข้อมูล</strong><small>วางและแทนที่ข้อมูลจากข้อความ</small></span><span>›</span></button>
+        <button class="setting-row" id="export-data" type="button"><span class="setting-icon">↑</span><span><strong>สำรองข้อมูล</strong><small>ดาวน์โหลดไฟล์ JSON ที่มีคีย์ทั้งหมด</small></span><span>›</span></button>
+        <button class="setting-row danger-row" id="clear-data" type="button"><span class="setting-icon">×</span><span><strong>ลบข้อมูลทั้งหมด</strong><small>ลบคีย์ออกจากส่วนขยายนี้</small></span><span>›</span></button>
+        <div class="privacy-note"><strong>ความเป็นส่วนตัว</strong><p>ข้อมูลถูกบันทึกด้วย chrome.storage.local เท่านั้น ส่วนขยายไม่มีสิทธิ์เข้าถึงเว็บไซต์และไม่ส่งข้อมูลออกจากเครื่อง</p></div>
+      </div>
+    </dialog>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <script src="lib/parser.js"></script>
+    <script src="popup.js"></script>
+  </body>
+</html>
