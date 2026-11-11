@@ -1,0 +1,4 @@
+interface:
+  display_name: "MiniMax H3 Image Prompt Writing"
+  short_description: "Write H3 image captions and save them as .txt"
+  default_prompt: "Use $minimax-h3-image-prompt-writing to rewrite this image request into a MiniMax H3 caption .txt file."
